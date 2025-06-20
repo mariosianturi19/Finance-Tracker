@@ -11,6 +11,7 @@ import { TrendingUp, TrendingDown, Wallet, Plus, ArrowUpRight, ArrowDownRight, C
 import { Button } from '@/components/ui/button';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { useRouter } from 'next/navigation';
+import { toast } from 'sonner';
 
 const COLORS = ['#059669', '#dc2626', '#d97706', '#2563eb', '#7c3aed', '#059669'];
 
@@ -53,23 +54,45 @@ export default function DashboardPage() {
   }, [user, currentDate]);
 
   const fetchDashboardData = async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       
-      // Format untuk YYYY-MM
-      const currentMonth = formatSelectedMonth(currentDate);
+      // Get start and end dates for the selected month
+      const year = currentDate.getFullYear();
+      const month = currentDate.getMonth();
       
-      // Fetch transactions for current month
+      // First day of the month
+      const startDate = new Date(year, month, 1);
+      const startDateStr = startDate.toISOString().split('T')[0];
+      
+      // Last day of the month
+      const endDate = new Date(year, month + 1, 0);
+      const endDateStr = endDate.toISOString().split('T')[0];
+      
+      console.log('Dashboard: Fetching transactions for:', startDateStr, 'to', endDateStr);
+      
+      // Fetch transactions for selected month
       const { data: monthTransactions, error } = await supabase
         .from('transactions')
         .select('*')
-        .eq('user_id', user?.id)
-        .gte('date', `${currentMonth}-01`)
-        .lte('date', `${currentMonth}-31`)
+        .eq('user_id', user.id)
+        .gte('date', startDateStr)
+        .lte('date', endDateStr)
         .order('created_at', { ascending: false });
 
-      if (error) throw error;
+      if (error) {
+        console.error('Dashboard error:', error);
+        toast.error('Gagal memuat data dashboard: ' + error.message);
+        setTransactions([]);
+        return;
+      }
 
+      console.log('Dashboard: Transactions fetched:', monthTransactions?.length || 0);
       const transactionsData = monthTransactions || [];
       setTransactions(transactionsData);
 
@@ -94,6 +117,8 @@ export default function DashboardPage() {
 
     } catch (error) {
       console.error('Error fetching dashboard data:', error);
+      toast.error('Gagal memuat data dashboard');
+      setTransactions([]);
     } finally {
       setLoading(false);
     }
@@ -129,11 +154,11 @@ export default function DashboardPage() {
       
       const pemasukan = weekTransactions
         .filter(t => t.type === 'pemasukan')
-        .reduce((sum, t) => sum + t.amount, 0);
+        .reduce((sum, t) => sum + (t.amount || 0), 0);
       
       const pengeluaran = weekTransactions
         .filter(t => t.type === 'pengeluaran')
-        .reduce((sum, t) => sum + t.amount, 0);
+        .reduce((sum, t) => sum + (t.amount || 0), 0);
       
       weeks.push({
         week: `Minggu ${week}`,
@@ -153,7 +178,7 @@ export default function DashboardPage() {
       .filter(t => t.type === 'pengeluaran')
       .forEach(transaction => {
         const existing = categoryMap.get(transaction.category) || 0;
-        categoryMap.set(transaction.category, existing + transaction.amount);
+        categoryMap.set(transaction.category, existing + (transaction.amount || 0));
       });
 
     return Array.from(categoryMap.entries())
@@ -186,15 +211,18 @@ export default function DashboardPage() {
   // Calculate totals for current month
   const totalIncome = transactions
     .filter(t => t.type === 'pemasukan')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + (t.amount || 0), 0);
 
   const totalExpense = transactions
     .filter(t => t.type === 'pengeluaran')  
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + (t.amount || 0), 0);
 
   const balance = totalIncome - totalExpense;
 
-  if (loading) {
+  // Calculate all time totals (fetch separately if needed, for now use current month)
+  const totalBalance = balance; // You can fetch all-time data separately if needed
+
+  if (!user) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center min-h-screen">
@@ -337,69 +365,88 @@ export default function DashboardPage() {
               </CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="h-[300px]">
-                <ResponsiveContainer width="100%" height="100%">
-                  <AreaChart data={weeklyData}>
-                    <defs>
-                      <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#059669" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#059669" stopOpacity={0}/>
-                      </linearGradient>
-                      <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#dc2626" stopOpacity={0.3}/>
-                        <stop offset="95%" stopColor="#dc2626" stopOpacity={0}/>
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                    <XAxis 
-                      dataKey="week" 
-                      stroke="#64748b"
-                      fontSize={12}
-                    />
-                    <YAxis 
-                      stroke="#64748b"
-                      fontSize={12}
-                      tickFormatter={(value) => {
-                        if (value >= 1000000) {
-                          return `${(value / 1000000).toFixed(1)}M`;
-                        } else if (value >= 1000) {
-                          return `${(value / 1000).toFixed(0)}K`;
-                        }
-                        return value.toString();
-                      }}
-                    />
-                    <Tooltip 
-                      formatter={(value: any, name: any) => [
-                        formatCurrency(value), 
-                        name === 'pemasukan' ? 'Pemasukan' : 
-                        name === 'pengeluaran' ? 'Pengeluaran' : 'Net'
-                      ]}
-                      labelStyle={{ color: '#1f2937' }}
-                      contentStyle={{ 
-                        backgroundColor: '#ffffff',
-                        border: '1px solid #e2e8f0',
-                        borderRadius: '8px'
-                      }}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="pemasukan" 
-                      stackId="1"
-                      stroke="#059669" 
-                      fill="url(#incomeGradient)"
-                      strokeWidth={2}
-                    />
-                    <Area 
-                      type="monotone" 
-                      dataKey="pengeluaran" 
-                      stackId="2"
-                      stroke="#dc2626" 
-                      fill="url(#expenseGradient)"
-                      strokeWidth={2}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
+              {loading ? (
+                <div className="h-[300px] flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : weeklyData.length > 0 && weeklyData.some(w => w.pemasukan > 0 || w.pengeluaran > 0) ? (
+                <div className="h-[300px]">
+                  <ResponsiveContainer width="100%" height="100%">
+                    <AreaChart data={weeklyData}>
+                      <defs>
+                        <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#059669" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#059669" stopOpacity={0}/>
+                        </linearGradient>
+                        <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#dc2626" stopOpacity={0.3}/>
+                          <stop offset="95%" stopColor="#dc2626" stopOpacity={0}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                      <XAxis 
+                        dataKey="week" 
+                        stroke="#64748b"
+                        fontSize={12}
+                      />
+                      <YAxis 
+                        stroke="#64748b"
+                        fontSize={12}
+                        tickFormatter={(value) => {
+                          if (value >= 1000000) {
+                            return `${(value / 1000000).toFixed(1)}M`;
+                          } else if (value >= 1000) {
+                            return `${(value / 1000).toFixed(0)}K`;
+                          }
+                          return value.toString();
+                        }}
+                      />
+                      <Tooltip 
+                        formatter={(value: any, name: any) => [
+                          formatCurrency(value), 
+                          name === 'pemasukan' ? 'Pemasukan' : 
+                          name === 'pengeluaran' ? 'Pengeluaran' : 'Net'
+                        ]}
+                        labelStyle={{ color: '#1f2937' }}
+                        contentStyle={{ 
+                          backgroundColor: '#ffffff',
+                          border: '1px solid #e2e8f0',
+                          borderRadius: '8px'
+                        }}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="pemasukan" 
+                        stackId="1"
+                        stroke="#059669" 
+                        fill="url(#incomeGradient)"
+                        strokeWidth={2}
+                      />
+                      <Area 
+                        type="monotone" 
+                        dataKey="pengeluaran" 
+                        stackId="2"
+                        stroke="#dc2626" 
+                        fill="url(#expenseGradient)"
+                        strokeWidth={2}
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+              ) : (
+                <div className="h-[300px] flex flex-col items-center justify-center">
+                  <TrendingUp className="h-12 w-12 text-muted-foreground mb-4" />
+                  <p className="text-muted-foreground text-center">
+                    Belum ada data transaksi untuk {formatMonthYear(currentDate)}
+                  </p>
+                  <Button 
+                    className="mt-4" 
+                    onClick={() => router.push('/transactions')}
+                  >
+                    Tambah Transaksi
+                  </Button>
+                </div>
+              )}
             </CardContent>
           </Card>
 
@@ -415,7 +462,11 @@ export default function DashboardPage() {
               </p>
             </CardHeader>
             <CardContent>
-              {categoryData.length > 0 ? (
+              {loading ? (
+                <div className="h-[250px] flex items-center justify-center">
+                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+                </div>
+              ) : categoryData.length > 0 ? (
                 <>
                   <div className="h-[200px]">
                     <ResponsiveContainer width="100%" height="100%">
@@ -467,6 +518,13 @@ export default function DashboardPage() {
                   <p className="text-sm text-muted-foreground text-center">
                     Belum ada pengeluaran bulan ini
                   </p>
+                  <Button 
+                    className="mt-4" 
+                    size="sm"
+                    onClick={() => router.push('/transactions')}
+                  >
+                    Tambah Transaksi
+                  </Button>
                 </div>
               )}
             </CardContent>
@@ -494,7 +552,11 @@ export default function DashboardPage() {
             </Button>
           </CardHeader>
           <CardContent>
-            {recentTransactions.length > 0 ? (
+            {loading ? (
+              <div className="flex justify-center py-8">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              </div>
+            ) : recentTransactions.length > 0 ? (
               <div className="space-y-4">
                 {recentTransactions.map((transaction) => (
                   <div key={transaction.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors">
