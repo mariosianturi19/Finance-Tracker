@@ -1,194 +1,74 @@
+// app/dashboard/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { supabase, Transaction } from '@/lib/supabase';
-import { useAuth } from '@/components/providers/auth-provider';
-import { formatDate } from '@/lib/timezone';
-import { formatCurrency } from '@/lib/currency';
-import { TrendingUp, TrendingDown, Wallet, Plus, ArrowUpRight, ArrowDownRight, Calendar, Target, CreditCard, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, AreaChart, Area } from 'recharts';
 import { useRouter } from 'next/navigation';
-import { toast } from 'sonner';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { DashboardLayout } from '@/components/layouts/dashboard-layout';
+import { useAuth } from '@/components/providers/auth-provider';
+import { getTransactions, Transaction } from '@/lib/transactions';
+import { getWallets, getWalletTypeIcon } from '@/lib/wallets';
+import { getProfile } from '@/lib/profile';
+import { formatCurrency } from '@/lib/utils';
+import { 
+  Plus, 
+  TrendingUp, 
+  TrendingDown, 
+  Calendar, 
+  ChevronLeft, 
+  ChevronRight,
+  Target,
+  Wallet,
+  Eye,
+  EyeOff
+} from 'lucide-react';
+import { WalletWithBalance } from '@/lib/types';
 
-const COLORS = ['#059669', '#dc2626', '#d97706', '#2563eb', '#7c3aed', '#059669'];
-
-interface WeeklyData {
-  week: string;
-  pemasukan: number;
-  pengeluaran: number;
-  net: number;
-}
-
-interface CategoryData {
-  name: string;
-  value: number;
-  color: string;
-}
-
-interface RecentTransaction {
-  id: string;
-  type: 'pemasukan' | 'pengeluaran';
-  amount: number;
-  category: string;
-  date: string;
-  note?: string;
+interface Profile {
+  full_name: string | null;
 }
 
 export default function DashboardPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [weeklyData, setWeeklyData] = useState<WeeklyData[]>([]);
-  const [categoryData, setCategoryData] = useState<CategoryData[]>([]);
-  const [recentTransactions, setRecentTransactions] = useState<RecentTransaction[]>([]);
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const { user, profile } = useAuth();
+  const { user } = useAuth();
   const router = useRouter();
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [wallets, setWallets] = useState<WalletWithBalance[]>([]);
+  const [profile, setProfile] = useState<Profile | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [showBalances, setShowBalances] = useState(true);
 
   useEffect(() => {
     if (user) {
-      fetchDashboardData();
+      fetchData();
     }
   }, [user, currentDate]);
 
-  const fetchDashboardData = async () => {
-    if (!user?.id) {
-      setLoading(false);
-      return;
-    }
-
+  const fetchData = async () => {
     try {
       setLoading(true);
+      const [transactionsData, walletsData, profileData] = await Promise.all([
+        getTransactions(currentDate.getFullYear(), currentDate.getMonth() + 1),
+        getWallets(),
+        getProfile()
+      ]);
       
-      // Get start and end dates for the selected month
-      const year = currentDate.getFullYear();
-      const month = currentDate.getMonth();
-      
-      // First day of the month
-      const startDate = new Date(year, month, 1);
-      const startDateStr = startDate.toISOString().split('T')[0];
-      
-      // Last day of the month
-      const endDate = new Date(year, month + 1, 0);
-      const endDateStr = endDate.toISOString().split('T')[0];
-      
-      console.log('Dashboard: Fetching transactions for:', startDateStr, 'to', endDateStr);
-      
-      // Fetch transactions for selected month
-      const { data: monthTransactions, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('date', startDateStr)
-        .lte('date', endDateStr)
-        .order('created_at', { ascending: false });
-
-      if (error) {
-        console.error('Dashboard error:', error);
-        toast.error('Gagal memuat data dashboard: ' + error.message);
-        setTransactions([]);
-        return;
-      }
-
-      console.log('Dashboard: Transactions fetched:', monthTransactions?.length || 0);
-      const transactionsData = monthTransactions || [];
       setTransactions(transactionsData);
+      setWallets(walletsData);
+      setProfile(profileData);
 
-      // Process weekly data for current month
-      const weeklyMap = generateWeeklyData(transactionsData, currentDate);
-      setWeeklyData(weeklyMap);
-
-      // Process category data for current month
-      const categoryDataArray = processCategoryData(transactionsData);
-      setCategoryData(categoryDataArray);
-
-      // Get recent transactions (last 5 from current month)
-      const recent = transactionsData.slice(0, 5).map(t => ({
-        id: t.id,
-        type: t.type,
-        amount: t.amount,
-        category: t.category,
-        date: t.date,
-        note: t.note,
-      }));
-      setRecentTransactions(recent);
-
+      // Redirect to wallet setup if no wallets exist
+      if (walletsData.length === 0) {
+        router.push('/wallet-setup');
+      }
     } catch (error) {
-      console.error('Error fetching dashboard data:', error);
-      toast.error('Gagal memuat data dashboard');
-      setTransactions([]);
+      console.error('Error fetching data:', error);
     } finally {
       setLoading(false);
     }
-  };
-
-  const formatSelectedMonth = (date: Date): string => {
-    return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
-  };
-
-  const generateWeeklyData = (transactions: Transaction[], date: Date): WeeklyData[] => {
-    const year = date.getFullYear();
-    const month = date.getMonth();
-    
-    // Get first day of month and calculate weeks
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    
-    const weeks: WeeklyData[] = [];
-    
-    // Generate 4 weeks
-    for (let week = 1; week <= 4; week++) {
-      const weekStart = new Date(year, month, (week - 1) * 7 + 1);
-      const weekEnd = new Date(year, month, week * 7);
-      
-      // Adjust for month boundaries
-      if (weekStart < firstDay) weekStart.setDate(firstDay.getDate());
-      if (weekEnd > lastDay) weekEnd.setDate(lastDay.getDate());
-      
-      const weekTransactions = transactions.filter(t => {
-        const transDate = new Date(t.date);
-        return transDate >= weekStart && transDate <= weekEnd;
-      });
-      
-      const pemasukan = weekTransactions
-        .filter(t => t.type === 'pemasukan')
-        .reduce((sum, t) => sum + (t.amount || 0), 0);
-      
-      const pengeluaran = weekTransactions
-        .filter(t => t.type === 'pengeluaran')
-        .reduce((sum, t) => sum + (t.amount || 0), 0);
-      
-      weeks.push({
-        week: `Minggu ${week}`,
-        pemasukan,
-        pengeluaran,
-        net: pemasukan - pengeluaran,
-      });
-    }
-    
-    return weeks;
-  };
-
-  const processCategoryData = (transactions: Transaction[]): CategoryData[] => {
-    const categoryMap = new Map<string, number>();
-    
-    transactions
-      .filter(t => t.type === 'pengeluaran')
-      .forEach(transaction => {
-        const existing = categoryMap.get(transaction.category) || 0;
-        categoryMap.set(transaction.category, existing + (transaction.amount || 0));
-      });
-
-    return Array.from(categoryMap.entries())
-      .map(([name, value], index) => ({
-        name,
-        value,
-        color: COLORS[index % COLORS.length],
-      }))
-      .sort((a, b) => b.value - a.value)
-      .slice(0, 5);
   };
 
   const navigateMonth = (direction: 'prev' | 'next') => {
@@ -217,12 +97,22 @@ export default function DashboardPage() {
     .filter(t => t.type === 'pengeluaran')  
     .reduce((sum, t) => sum + (t.amount || 0), 0);
 
-  const balance = totalIncome - totalExpense;
+  const monthlyBalance = totalIncome - totalExpense;
 
-  // Calculate all time totals (fetch separately if needed, for now use current month)
-  const totalBalance = balance; // You can fetch all-time data separately if needed
+  // Calculate total balance across all wallets
+  const totalBalance = wallets.reduce((sum, wallet) => sum + wallet.current_balance, 0);
 
   if (!user) {
+    return (
+      <DashboardLayout>
+        <div className="flex items-center justify-center min-h-screen">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        </div>
+      </DashboardLayout>
+    );
+  }
+
+  if (loading) {
     return (
       <DashboardLayout>
         <div className="flex items-center justify-center min-h-screen">
@@ -242,13 +132,123 @@ export default function DashboardPage() {
               Selamat datang, {profile?.full_name || 'User'}! 👋
             </h1>
             <p className="text-muted-foreground">
-              Berikut ringkasan keuangan Anda - {formatMonthYear(currentDate)}
+              Berikut ringkasan keuangan Anda
             </p>
           </div>
-          <Button onClick={() => router.push('/transactions')} className="w-full sm:w-auto">
-            <Plus className="h-4 w-4 mr-2" />
-            Tambah Transaksi
-          </Button>
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={() => router.push('/wallet-setup')}
+              className="w-full sm:w-auto"
+            >
+              <Wallet className="h-4 w-4 mr-2" />
+              Kelola Saldo
+            </Button>
+            <Button 
+              onClick={() => router.push('/transactions')} 
+              className="w-full sm:w-auto"
+            >
+              <Plus className="h-4 w-4 mr-2" />
+              Tambah Transaksi
+            </Button>
+          </div>
+        </div>
+
+        {/* Total Balance Card */}
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle className="text-lg">Total Saldo</CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowBalances(!showBalances)}
+              >
+                {showBalances ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
+            </div>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-bold mb-4">
+              {showBalances ? formatCurrency(totalBalance / 100) : '••••••••'}
+            </div>
+            
+            <div className="space-y-3">
+              {wallets.map((wallet) => (
+                <div key={wallet.id} className="flex items-center justify-between p-3 bg-muted/50 rounded-lg">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">{getWalletTypeIcon(wallet.type)}</span>
+                    <div>
+                      <p className="font-medium">{wallet.name}</p>
+                      <p className="text-sm text-muted-foreground capitalize">
+                        {wallet.type === 'ewallet' ? 'E-Wallet' : wallet.type}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className={`font-semibold ${
+                      wallet.current_balance >= 0 ? 'text-emerald-600' : 'text-red-600'
+                    }`}>
+                      {showBalances 
+                        ? formatCurrency(wallet.current_balance / 100) 
+                        : '••••••'
+                      }
+                    </p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Monthly Summary */}
+        <div className="grid gap-4 md:grid-cols-3">
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Pemasukan Bulan Ini
+              </CardTitle>
+              <TrendingUp className="h-4 w-4 text-emerald-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-emerald-600">
+                {showBalances ? formatCurrency(totalIncome / 100) : '••••••'}
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Pengeluaran Bulan Ini
+              </CardTitle>
+              <TrendingDown className="h-4 w-4 text-red-600" />
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-red-600">
+                {showBalances ? formatCurrency(totalExpense / 100) : '••••••'}
+              </div>
+            </CardContent>
+          </Card>
+          
+          <Card>
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">
+                Selisih Bulan Ini
+              </CardTitle>
+              <Target className="h-4 w-4 text-blue-600" />
+            </CardHeader>
+            <CardContent>
+              <div className={`text-2xl font-bold ${
+                monthlyBalance >= 0 ? 'text-emerald-600' : 'text-red-600'
+              }`}>
+                {showBalances 
+                  ? `${monthlyBalance >= 0 ? '+' : ''}${formatCurrency(monthlyBalance / 100)}`
+                  : '••••••'
+                }
+              </div>
+            </CardContent>
+          </Card>
         </div>
 
         {/* Month Navigation */}
@@ -282,320 +282,54 @@ export default function DashboardPage() {
           </CardContent>
         </Card>
 
-        {/* Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {/* Monthly Income */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Pemasukan {formatMonthYear(currentDate)}
-              </CardTitle>
-              <div className="p-2 bg-emerald-100 rounded-full">
-                <TrendingUp className="h-4 w-4 text-emerald-600" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-emerald-600">
-                {formatCurrency(totalIncome)}
-              </div>
-              <div className="flex items-center text-xs text-muted-foreground mt-1">
-                <ArrowUpRight className="h-3 w-3 mr-1" />
-                {transactions.filter(t => t.type === 'pemasukan').length} transaksi
-              </div>
-            </CardContent>
-          </Card>
-          
-          {/* Monthly Expense */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Pengeluaran {formatMonthYear(currentDate)}
-              </CardTitle>
-              <div className="p-2 bg-red-100 rounded-full">
-                <TrendingDown className="h-4 w-4 text-red-600" />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className="text-2xl font-bold text-red-600">
-                {formatCurrency(totalExpense)}
-              </div>
-              <div className="flex items-center text-xs text-muted-foreground mt-1">
-                <ArrowDownRight className="h-3 w-3 mr-1" />
-                {transactions.filter(t => t.type === 'pengeluaran').length} transaksi
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Monthly Balance */}
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">
-                Saldo {formatMonthYear(currentDate)}
-              </CardTitle>
-              <div className={`p-2 rounded-full ${
-                balance >= 0 ? 'bg-emerald-100' : 'bg-red-100'
-              }`}>
-                <CreditCard className={`h-4 w-4 ${
-                  balance >= 0 ? 'text-emerald-600' : 'text-red-600'
-                }`} />
-              </div>
-            </CardHeader>
-            <CardContent>
-              <div className={`text-2xl font-bold ${
-                balance >= 0 ? 'text-emerald-600' : 'text-red-600'
-              }`}>
-                {formatCurrency(balance)}
-              </div>
-              <div className="flex items-center text-xs text-muted-foreground mt-1">
-                <Calendar className="h-3 w-3 mr-1" />
-                {formatMonthYear(currentDate)}
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-
-        {/* Charts Section */}
-        <div className="grid gap-6 lg:grid-cols-3">
-          {/* Weekly Chart */}
-          <Card className="lg:col-span-2">
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Tren Mingguan - {formatMonthYear(currentDate)}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="h-[300px] flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : weeklyData.length > 0 && weeklyData.some(w => w.pemasukan > 0 || w.pengeluaran > 0) ? (
-                <div className="h-[300px]">
-                  <ResponsiveContainer width="100%" height="100%">
-                    <AreaChart data={weeklyData}>
-                      <defs>
-                        <linearGradient id="incomeGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#059669" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#059669" stopOpacity={0}/>
-                        </linearGradient>
-                        <linearGradient id="expenseGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#dc2626" stopOpacity={0.3}/>
-                          <stop offset="95%" stopColor="#dc2626" stopOpacity={0}/>
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
-                      <XAxis 
-                        dataKey="week" 
-                        stroke="#64748b"
-                        fontSize={12}
-                      />
-                      <YAxis 
-                        stroke="#64748b"
-                        fontSize={12}
-                        tickFormatter={(value) => {
-                          if (value >= 1000000) {
-                            return `${(value / 1000000).toFixed(1)}M`;
-                          } else if (value >= 1000) {
-                            return `${(value / 1000).toFixed(0)}K`;
-                          }
-                          return value.toString();
-                        }}
-                      />
-                      <Tooltip 
-                        formatter={(value: any, name: any) => [
-                          formatCurrency(value), 
-                          name === 'pemasukan' ? 'Pemasukan' : 
-                          name === 'pengeluaran' ? 'Pengeluaran' : 'Net'
-                        ]}
-                        labelStyle={{ color: '#1f2937' }}
-                        contentStyle={{ 
-                          backgroundColor: '#ffffff',
-                          border: '1px solid #e2e8f0',
-                          borderRadius: '8px'
-                        }}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="pemasukan" 
-                        stackId="1"
-                        stroke="#059669" 
-                        fill="url(#incomeGradient)"
-                        strokeWidth={2}
-                      />
-                      <Area 
-                        type="monotone" 
-                        dataKey="pengeluaran" 
-                        stackId="2"
-                        stroke="#dc2626" 
-                        fill="url(#expenseGradient)"
-                        strokeWidth={2}
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
-              ) : (
-                <div className="h-[300px] flex flex-col items-center justify-center">
-                  <TrendingUp className="h-12 w-12 text-muted-foreground mb-4" />
-                  <p className="text-muted-foreground text-center">
-                    Belum ada data transaksi untuk {formatMonthYear(currentDate)}
-                  </p>
-                  <Button 
-                    className="mt-4" 
-                    onClick={() => router.push('/transactions')}
-                  >
-                    Tambah Transaksi
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-
-          {/* Category Pie Chart */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Target className="h-5 w-5" />
-                Kategori Pengeluaran
-              </CardTitle>
-              <p className="text-sm text-muted-foreground">
-                {formatMonthYear(currentDate)}
-              </p>
-            </CardHeader>
-            <CardContent>
-              {loading ? (
-                <div className="h-[250px] flex items-center justify-center">
-                  <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-                </div>
-              ) : categoryData.length > 0 ? (
-                <>
-                  <div className="h-[200px]">
-                    <ResponsiveContainer width="100%" height="100%">
-                      <PieChart>
-                        <Pie
-                          data={categoryData}
-                          cx="50%"
-                          cy="50%"
-                          innerRadius={40}
-                          outerRadius={80}
-                          paddingAngle={5}
-                          dataKey="value"
-                        >
-                          {categoryData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={entry.color} />
-                          ))}
-                        </Pie>
-                        <Tooltip 
-                          formatter={(value: any) => formatCurrency(value)}
-                          contentStyle={{ 
-                            backgroundColor: '#ffffff',
-                            border: '1px solid #e2e8f0',
-                            borderRadius: '8px'
-                          }}
-                        />
-                      </PieChart>
-                    </ResponsiveContainer>
-                  </div>
-                  <div className="space-y-2">
-                    {categoryData.map((category, index) => (
-                      <div key={index} className="flex items-center justify-between">
-                        <div className="flex items-center gap-2">
-                          <div 
-                            className="w-3 h-3 rounded-full" 
-                            style={{ backgroundColor: category.color }}
-                          />
-                          <span className="text-sm font-medium">{category.name}</span>
-                        </div>
-                        <span className="text-sm text-muted-foreground">
-                          {formatCurrency(category.value)}
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                </>
-              ) : (
-                <div className="flex flex-col items-center justify-center py-8">
-                  <Target className="h-12 w-12 text-muted-foreground mb-2" />
-                  <p className="text-sm text-muted-foreground text-center">
-                    Belum ada pengeluaran bulan ini
-                  </p>
-                  <Button 
-                    className="mt-4" 
-                    size="sm"
-                    onClick={() => router.push('/transactions')}
-                  >
-                    Tambah Transaksi
-                  </Button>
-                </div>
-              )}
-            </CardContent>
-          </Card>
-        </div>
-
         {/* Recent Transactions */}
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
-            <div>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Transaksi Terbaru - {formatMonthYear(currentDate)}
-              </CardTitle>
-              <p className="text-sm text-muted-foreground mt-1">
-                {recentTransactions.length} dari {transactions.length} transaksi
-              </p>
-            </div>
-            <Button 
-              variant="outline" 
-              size="sm"
-              onClick={() => router.push('/transactions')}
-            >
-              Lihat Semua
-            </Button>
+          <CardHeader>
+            <CardTitle>Transaksi Terbaru</CardTitle>
           </CardHeader>
           <CardContent>
-            {loading ? (
-              <div className="flex justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
-              </div>
-            ) : recentTransactions.length > 0 ? (
-              <div className="space-y-4">
-                {recentTransactions.map((transaction) => (
-                  <div key={transaction.id} className="flex items-center justify-between p-3 rounded-lg hover:bg-muted/50 transition-colors">
-                    <div className="flex items-center space-x-3">
-                      <div className={`p-2 rounded-full ${
-                        transaction.type === 'pemasukan' 
-                          ? 'bg-emerald-100 text-emerald-600' 
-                          : 'bg-red-100 text-red-600'
-                      }`}>
-                        {transaction.type === 'pemasukan' ? (
-                          <ArrowUpRight className="h-4 w-4" />
-                        ) : (
-                          <ArrowDownRight className="h-4 w-4" />
-                        )}
+            {transactions.length > 0 ? (
+              <div className="space-y-3">
+                {transactions.slice(0, 5).map((transaction) => {
+                  const wallet = wallets.find(w => w.id === transaction.wallet_id);
+                  return (
+                    <div key={transaction.id} className="flex items-center justify-between p-3 border rounded-lg">
+                      <div className="flex items-center space-x-3">
+                        <div className={`w-3 h-3 rounded-full ${
+                          transaction.type === 'pemasukan' ? 'bg-emerald-500' : 'bg-red-500'
+                        }`} />
+                        <div>
+                          <p className="font-medium">{transaction.category}</p>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <span>{new Date(transaction.date).toLocaleDateString('id-ID')}</span>
+                            {wallet && (
+                              <>
+                                <span>•</span>
+                                <span className="flex items-center gap-1">
+                                  {getWalletTypeIcon(wallet.type)}
+                                  {wallet.name}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                          {transaction.note && (
+                            <p className="text-sm text-muted-foreground mt-1">{transaction.note}</p>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium">{transaction.category}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDate(transaction.date)}
+                      <div className="text-right">
+                        <p className={`font-semibold ${
+                          transaction.type === 'pemasukan' 
+                            ? 'text-emerald-600' 
+                            : 'text-red-600'
+                        }`}>
+                          {transaction.type === 'pemasukan' ? '+' : '-'}
+                          {formatCurrency(transaction.amount / 100)}
                         </p>
-                        {transaction.note && (
-                          <p className="text-xs text-muted-foreground mt-1 max-w-[200px] truncate">
-                            {transaction.note}
-                          </p>
-                        )}
                       </div>
                     </div>
-                    <div className="text-right">
-                      <p className={`font-semibold ${
-                        transaction.type === 'pemasukan' 
-                          ? 'text-emerald-600' 
-                          : 'text-red-600'
-                      }`}>
-                        {transaction.type === 'pemasukan' ? '+' : '-'}
-                        {formatCurrency(transaction.amount)}
-                      </p>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             ) : (
               <div className="flex flex-col items-center justify-center py-8">
@@ -619,36 +353,36 @@ export default function DashboardPage() {
                   <Plus className="h-6 w-6 text-blue-600" />
                 </div>
                 <h3 className="font-semibold">Tambah Transaksi</h3>
-                <p className="text-sm text-muted-foreground">Catat pemasukan atau pengeluaran</p>
-              </div>
-            </CardContent>
-          </Card>
+               <p className="text-sm text-muted-foreground">Catat pemasukan atau pengeluaran</p>
+             </div>
+           </CardContent>
+         </Card>
 
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/reports')}>
-            <CardContent className="flex items-center justify-center p-6">
-              <div className="text-center">
-                <div className="p-3 bg-green-100 rounded-full w-fit mx-auto mb-2">
-                  <TrendingUp className="h-6 w-6 text-green-600" />
-                </div>
-                <h3 className="font-semibold">Lihat Laporan</h3>
-                <p className="text-sm text-muted-foreground">Analisis keuangan mendalam</p>
-              </div>
-            </CardContent>
-          </Card>
+         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/reports')}>
+           <CardContent className="flex items-center justify-center p-6">
+             <div className="text-center">
+               <div className="p-3 bg-green-100 rounded-full w-fit mx-auto mb-2">
+                 <TrendingUp className="h-6 w-6 text-green-600" />
+               </div>
+               <h3 className="font-semibold">Lihat Laporan</h3>
+               <p className="text-sm text-muted-foreground">Analisis keuangan mendalam</p>
+             </div>
+           </CardContent>
+         </Card>
 
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/budgets')}>
-            <CardContent className="flex items-center justify-center p-6">
-              <div className="text-center">
-                <div className="p-3 bg-purple-100 rounded-full w-fit mx-auto mb-2">
-                  <Target className="h-6 w-6 text-purple-600" />
-                </div>
-                <h3 className="font-semibold">Atur Budget</h3>
-                <p className="text-sm text-muted-foreground">Kelola anggaran bulanan</p>
-              </div>
-            </CardContent>
-          </Card>
-        </div>
-      </div>
-    </DashboardLayout>
-  );
+         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/wallets')}>
+           <CardContent className="flex items-center justify-center p-6">
+             <div className="text-center">
+               <div className="p-3 bg-purple-100 rounded-full w-fit mx-auto mb-2">
+                 <Wallet className="h-6 w-6 text-purple-600" />
+               </div>
+               <h3 className="font-semibold">Kelola Saldo</h3>
+               <p className="text-sm text-muted-foreground">Atur sumber saldo Anda</p>
+             </div>
+           </CardContent>
+         </Card>
+       </div>
+     </div>
+   </DashboardLayout>
+ );
 }

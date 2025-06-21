@@ -1,3 +1,4 @@
+// lib/auth.ts
 import { supabase } from './supabase';
 
 export const signUp = async (
@@ -112,57 +113,26 @@ async function ensureProfileExists(
   whatsappNumber?: string
 ) {
   try {
-    // Check if profile exists
-    const { data: existingProfile, error: checkError } = await supabase
+    const { data: existingProfile } = await supabase
       .from('profiles')
       .select('id')
       .eq('id', userId)
       .single();
 
-    if (checkError && checkError.code === 'PGRST116') {
-      // Profile doesn't exist, create it
-      const { error: insertError } = await supabase
+    if (!existingProfile) {
+      const { error: profileError } = await supabase
         .from('profiles')
-        .insert([{
+        .insert({
           id: userId,
-          email: email,
-          full_name: fullName || 'User',
+          full_name: fullName,
           whatsapp_number: whatsappNumber || null,
-        }]);
+        });
 
-      if (insertError) {
-        console.error('Error creating profile:', insertError);
-        throw insertError;
+      if (profileError) {
+        console.error('Error creating profile:', profileError);
       }
-
-      console.log('✅ Profile created successfully');
-    } else if (checkError) {
-      throw checkError;
-    } else {
-      console.log('✅ Profile already exists');
     }
   } catch (error) {
     console.error('Error ensuring profile exists:', error);
-    throw error;
   }
 }
-
-// Reset password
-export const resetPassword = async (email: string) => {
-  const { data, error } = await supabase.auth.resetPasswordForEmail(email, {
-    redirectTo: `${window.location.origin}/auth/reset-password`,
-  });
-
-  if (error) throw error;
-  return data;
-};
-
-// Update password
-export const updatePassword = async (newPassword: string) => {
-  const { data, error } = await supabase.auth.updateUser({
-    password: newPassword
-  });
-
-  if (error) throw error;
-  return data;
-};

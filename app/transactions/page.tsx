@@ -1,284 +1,159 @@
+// app/transactions/page.tsx
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { useRouter } from 'next/navigation';
+import { useForm } from 'react-hook-form';
+import { zodResolver } from '@hookform/resolvers/zod';
+import * as z from 'zod';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { CurrencyInput } from '@/components/ui/currency-input';
-import { DashboardLayout } from '@/components/layout/dashboard-layout';
-import { supabase, Transaction } from '@/lib/supabase';
-import { useAuth } from '@/components/providers/auth-provider';
-import { formatDate } from '@/lib/timezone';
-import { formatCurrency } from '@/lib/currency';
-import { Plus, Search, Filter, TrendingUp, TrendingDown, Edit, Trash2, Calendar, ChevronLeft, ChevronRight } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
 import { Label } from '@/components/ui/label';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
-import { useForm, Controller } from 'react-hook-form';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Badge } from '@/components/ui/badge';
+import { Separator } from '@/components/ui/separator';
+import { DashboardLayout } from '@/components/layouts/dashboard-layout';
+import { useAuth } from '@/components/providers/auth-provider';
+import { createTransaction, getTransactions, Transaction } from '@/lib/transactions';
+import { getCategories, Category } from '@/lib/categories';
+import { getWallets, getWalletTypeIcon } from '@/lib/wallets';
+import { formatCurrency } from '@/lib/utils';
 import { toast } from 'sonner';
+import { 
+  Plus, 
+  Filter, 
+  Search, 
+  Calendar,
+  Wallet,
+  TrendingUp,
+  TrendingDown,
+  Eye,
+  EyeOff
+} from 'lucide-react';
+import { WalletWithBalance } from '@/lib/types';
 
-interface TransactionFormData {
-  type: 'pemasukan' | 'pengeluaran';
-  amount: number;
-  category: string;
-  note: string;
-  date: string;
-}
+const transactionSchema = z.object({
+  type: z.enum(['pemasukan', 'pengeluaran']),
+  amount: z.string().min(1, 'Jumlah harus diisi'),
+  category: z.string().min(1, 'Kategori harus dipilih'),
+  wallet_id: z.string().min(1, 'Sumber saldo harus dipilih'),
+  note: z.string().optional(),
+  date: z.string().min(1, 'Tanggal harus diisi'),
+});
 
-const categories = {
-  pemasukan: ['Gaji', 'Bonus', 'Investasi', 'Freelance', 'Lainnya'],
-  pengeluaran: ['Makanan', 'Transport', 'Belanja', 'Tagihan', 'Hiburan', 'Kesehatan', 'Lainnya'],
-};
+type TransactionFormData = z.infer<typeof transactionSchema>;
 
 export default function TransactionsPage() {
-  const [transactions, setTransactions] = useState<Transaction[]>([]);
-  const [filteredTransactions, setFilteredTransactions] = useState<Transaction[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState<'all' | 'pemasukan' | 'pengeluaran'>('all');
-  const [selectedMonth, setSelectedMonth] = useState(new Date());
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const { user } = useAuth();
+  const router = useRouter();
+  const [transactions, setTransactions] = useState<Transaction[]>([]);
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [wallets, setWallets] = useState<WalletWithBalance[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [showForm, setShowForm] = useState(false);
+  const [filterWallet, setFilterWallet] = useState<string>('all');
+  const [filterType, setFilterType] = useState<string>('all');
+  const [searchQuery, setSearchQuery] = useState('');
+  const [currentDate, setCurrentDate] = useState(new Date());
+  const [showBalances, setShowBalances] = useState(true);
 
-  const { register, handleSubmit, reset, setValue, watch, control, formState: { errors } } = useForm<TransactionFormData>({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<TransactionFormData>({
+    resolver: zodResolver(transactionSchema),
     defaultValues: {
-      amount: 0,
       date: new Date().toISOString().split('T')[0],
-    }
+      type: 'pengeluaran',
+    },
   });
-  
-  const watchedType = watch('type');
+
+  const selectedType = watch('type');
+  const selectedWalletId = watch('wallet_id');
 
   useEffect(() => {
     if (user) {
-      fetchTransactions();
+      fetchData();
     }
-  }, [user, selectedMonth]);
+  }, [user, currentDate]);
 
-  useEffect(() => {
-    applyFilters();
-  }, [transactions, searchTerm, filterType]);
+  const fetchData = async () => {
+    try {
+      const [transactionsData, categoriesData, walletsData] = await Promise.all([
+        getTransactions(currentDate.getFullYear(), currentDate.getMonth() + 1),
+        getCategories(),
+        getWallets()
+      ]);
+      
+      setTransactions(transactionsData);
+      setCategories(categoriesData);
+      setWallets(walletsData);
 
-  const fetchTransactions = async () => {
-    if (!user?.id) {
-      setLoading(false);
+      // Redirect to wallet setup if no wallets exist
+      if (walletsData.length === 0) {
+        toast.error('Anda perlu menambahkan sumber saldo terlebih dahulu');
+        router.push('/wallet-setup');
+      }
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      toast.error('Gagal memuat data');
+    }
+  };
+
+  const onSubmit = async (data: TransactionFormData) => {
+    const selectedWallet = wallets.find(w => w.id === data.wallet_id);
+    if (!selectedWallet) {
+      toast.error('Sumber saldo tidak valid');
       return;
     }
 
+    const amountInCents = Math.round(parseFloat(data.amount) * 100);
+
+    // Validate sufficient balance for expenses
+    if (data.type === 'pengeluaran' && amountInCents > selectedWallet.current_balance) {
+      toast.error(`Saldo ${selectedWallet.name} tidak mencukupi`);
+      return;
+    }
+
+    setLoading(true);
     try {
-      setLoading(true);
-      
-      // Get start and end dates for the selected month
-      const year = selectedMonth.getFullYear();
-      const month = selectedMonth.getMonth();
-      
-      // First day of the month
-      const startDate = new Date(year, month, 1);
-      const startDateStr = startDate.toISOString().split('T')[0];
-      
-      // Last day of the month
-      const endDate = new Date(year, month + 1, 0);
-      const endDateStr = endDate.toISOString().split('T')[0];
-      
-      console.log('Fetching transactions for:', startDateStr, 'to', endDateStr);
-      
-      // Fetch transactions for selected month with proper date range
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('user_id', user.id)
-        .gte('date', startDateStr)
-        .lte('date', endDateStr)
-        .order('date', { ascending: false });
+      await createTransaction({
+        type: data.type,
+        amount: amountInCents,
+        category: data.category,
+        wallet_id: data.wallet_id,
+        note: data.note || null,
+        date: data.date,
+      });
 
-      if (error) {
-        console.error('Supabase error:', error);
-        toast.error('Gagal memuat transaksi: ' + error.message);
-        setTransactions([]);
-        return;
-      }
-
-      console.log('Transactions fetched:', data?.length || 0);
-      setTransactions(data || []);
-    } catch (error) {
-      console.error('Error fetching transactions:', error);
-      toast.error('Gagal memuat transaksi');
-      setTransactions([]);
+      toast.success('Transaksi berhasil ditambahkan');
+      reset();
+      setShowForm(false);
+      fetchData();
+    } catch (error: any) {
+      toast.error(error.message || 'Gagal menambahkan transaksi');
     } finally {
       setLoading(false);
     }
   };
 
-  const formatSelectedMonth = (date: Date): string => {
-    return date.getFullYear() + '-' + String(date.getMonth() + 1).padStart(2, '0');
+  const filteredCategories = categories.filter(cat => cat.type === selectedType);
+
+  const filteredTransactions = transactions.filter(transaction => {
+    const matchesWallet = filterWallet === 'all' || transaction.wallet_id === filterWallet;
+    const matchesType = filterType === 'all' || transaction.type === filterType;
+    const matchesSearch = searchQuery === '' || 
+      transaction.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (transaction.note && transaction.note.toLowerCase().includes(searchQuery.toLowerCase()));
+    
+    return matchesWallet && matchesType && matchesSearch;
+  });
+
+  const getWalletById = (walletId: string | null) => {
+    return wallets.find(w => w.id === walletId);
   };
 
-  const formatMonthYear = (date: Date): string => {
-    return date.toLocaleDateString('id-ID', { 
-      year: 'numeric', 
-      month: 'long' 
-    });
-  };
+  const selectedWallet = wallets.find(w => w.id === selectedWalletId);
 
-  const navigateMonth = (direction: 'prev' | 'next') => {
-    const newDate = new Date(selectedMonth);
-    if (direction === 'prev') {
-      newDate.setMonth(newDate.getMonth() - 1);
-    } else {
-      newDate.setMonth(newDate.getMonth() + 1);
-    }
-    setSelectedMonth(newDate);
-  };
-
-  const applyFilters = () => {
-    try {
-      let filtered = [...transactions];
-
-      // Filter by search term
-      if (searchTerm && searchTerm.trim() !== '') {
-        filtered = filtered.filter(transaction => 
-          transaction.category?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-          (transaction.note && transaction.note.toLowerCase().includes(searchTerm.toLowerCase()))
-        );
-      }
-
-      // Filter by type
-      if (filterType !== 'all') {
-        filtered = filtered.filter(transaction => transaction.type === filterType);
-      }
-
-      setFilteredTransactions(filtered);
-    } catch (error) {
-      console.error('Error applying filters:', error);
-      setFilteredTransactions(transactions);
-    }
-  };
-
-  const onSubmit = async (data: TransactionFormData) => {
-    if (!user?.id) {
-      toast.error('User tidak ditemukan');
-      return;
-    }
-
-    try {
-      // Validasi amount
-      if (data.amount <= 0) {
-        toast.error('Jumlah harus lebih dari 0');
-        return;
-      }
-
-      // Validasi dan format date
-      const transactionDate = new Date(data.date);
-      if (isNaN(transactionDate.getTime())) {
-        toast.error('Format tanggal tidak valid');
-        return;
-      }
-
-      const formattedDate = transactionDate.toISOString().split('T')[0];
-
-      if (editingTransaction) {
-        const { error } = await supabase
-          .from('transactions')
-          .update({
-            type: data.type,
-            amount: data.amount,
-            category: data.category,
-            note: data.note || null,
-            date: formattedDate,
-          })
-          .eq('id', editingTransaction.id);
-
-        if (error) {
-          console.error('Error updating transaction:', error);
-          throw error;
-        }
-        toast.success('Transaksi berhasil diperbarui');
-      } else {
-        const { error } = await supabase
-          .from('transactions')
-          .insert([{
-            user_id: user.id,
-            type: data.type,
-            amount: data.amount,
-            category: data.category,
-            note: data.note || null,
-            date: formattedDate,
-          }]);
-
-        if (error) {
-          console.error('Error creating transaction:', error);
-          throw error;
-        }
-        toast.success('Transaksi berhasil ditambahkan');
-      }
-
-      setDialogOpen(false);
-      setEditingTransaction(null);
-      reset({
-        amount: 0,
-        date: new Date().toISOString().split('T')[0],
-      });
-      fetchTransactions();
-    } catch (error: any) {
-      console.error('Error saving transaction:', error);
-      toast.error('Gagal menyimpan transaksi: ' + (error.message || 'Unknown error'));
-    }
-  };
-
-  const handleEdit = (transaction: Transaction) => {
-    setEditingTransaction(transaction);
-    setValue('type', transaction.type);
-    setValue('amount', transaction.amount);
-    setValue('category', transaction.category);
-    setValue('note', transaction.note || '');
-    setValue('date', transaction.date);
-    setDialogOpen(true);
-  };
-
-  const handleDelete = async (id: string) => {
-    if (!confirm('Yakin ingin menghapus transaksi ini?')) return;
-
-    try {
-      const { error } = await supabase
-        .from('transactions')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
-        console.error('Error deleting transaction:', error);
-        throw error;
-      }
-      toast.success('Transaksi berhasil dihapus');
-      fetchTransactions();
-    } catch (error: any) {
-      console.error('Error deleting transaction:', error);
-      toast.error('Gagal menghapus transaksi: ' + (error.message || 'Unknown error'));
-    }
-  };
-
-  const handleCloseDialog = () => {
-    setDialogOpen(false);
-    setEditingTransaction(null);
-    reset({
-      amount: 0,
-      date: new Date().toISOString().split('T')[0],
-    });
-  };
-
-  // Calculate totals for selected month
-  const totalIncome = transactions
-    .filter(t => t.type === 'pemasukan')
-    .reduce((sum, t) => sum + (t.amount || 0), 0);
-
-  const totalExpense = transactions
-    .filter(t => t.type === 'pengeluaran')
-    .reduce((sum, t) => sum + (t.amount || 0), 0);
-
-  const balance = totalIncome - totalExpense;
-
-  // Jika loading auth, tampilkan loading
   if (!user) {
     return (
       <DashboardLayout>
@@ -293,98 +168,132 @@ export default function TransactionsPage() {
     <DashboardLayout>
       <div className="p-6 space-y-6">
         {/* Header */}
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">Transaksi</h1>
             <p className="text-muted-foreground">
-              Kelola semua transaksi keuangan Anda
+              Kelola pemasukan dan pengeluaran Anda
             </p>
           </div>
-          
-          <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-            <DialogTrigger asChild>
-              <Button>
-                <Plus className="h-4 w-4 mr-2" />
-                Tambah Transaksi
-              </Button>
-            </DialogTrigger>
-            <DialogContent className="sm:max-w-[425px]">
-              <DialogHeader>
-                <DialogTitle>
-                  {editingTransaction ? 'Edit Transaksi' : 'Tambah Transaksi'}
-                </DialogTitle>
-              </DialogHeader>
+          <Button onClick={() => setShowForm(!showForm)}>
+            <Plus className="h-4 w-4 mr-2" />
+            {showForm ? 'Tutup Form' : 'Tambah Transaksi'}
+          </Button>
+        </div>
+
+        {/* Add Transaction Form */}
+        {showForm && (
+          <Card>
+            <CardHeader>
+              <CardTitle>Tambah Transaksi Baru</CardTitle>
+              <CardDescription>
+                Catat pemasukan atau pengeluaran Anda
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
               <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                <div className="space-y-2">
-                  <Label htmlFor="type">Jenis</Label>
-                  <Controller
-                    name="type"
-                    control={control}
-                    rules={{ required: 'Jenis transaksi harus dipilih' }}
-                    render={({ field }) => (
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Pilih jenis transaksi" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="pemasukan">Pemasukan</SelectItem>
-                          <SelectItem value="pengeluaran">Pengeluaran</SelectItem>
-                        </SelectContent>
-                      </Select>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="type">Jenis Transaksi</Label>
+                    <Select 
+                      value={selectedType} 
+                      onValueChange={(value: 'pemasukan' | 'pengeluaran') => setValue('type', value)}
+                    >
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="pemasukan">
+                          <div className="flex items-center gap-2">
+                            <TrendingUp className="h-4 w-4 text-emerald-600" />
+                            Pemasukan
+                          </div>
+                        </SelectItem>
+                        <SelectItem value="pengeluaran">
+                          <div className="flex items-center gap-2">
+                            <TrendingDown className="h-4 w-4 text-red-600" />
+                            Pengeluaran
+                          </div>
+                        </SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label htmlFor="wallet_id">Sumber Saldo</Label>
+                    <Select 
+                      value={selectedWalletId || ''} 
+                      onValueChange={(value) => setValue('wallet_id', value)}
+                    >
+                      <SelectTrigger className={errors.wallet_id ? 'border-red-500' : ''}>
+                        <SelectValue placeholder="Pilih sumber saldo" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {wallets.map((wallet) => (
+                          <SelectItem key={wallet.id} value={wallet.id}>
+                            <div className="flex items-center justify-between w-full">
+                              <div className="flex items-center gap-2">
+                                <span>{getWalletTypeIcon(wallet.type)}</span>
+                                <span>{wallet.name}</span>
+                              </div>
+                              <span className="text-sm text-muted-foreground ml-2">
+                                {formatCurrency(wallet.current_balance / 100)}
+                              </span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.wallet_id && (
+                      <p className="text-sm text-red-600">{errors.wallet_id.message}</p>
                     )}
-                  />
-                  {errors.type && (
-                    <p className="text-sm text-red-500">{errors.type.message}</p>
-                  )}
+                    {selectedWallet && selectedType === 'pengeluaran' && (
+                      <p className="text-sm text-muted-foreground">
+                        Saldo tersedia: {formatCurrency(selectedWallet.current_balance / 100)}
+                      </p>
+                    )}
+                  </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="amount">Jumlah</Label>
-                  <Controller
-                    name="amount"
-                    control={control}
-                    rules={{ 
-                      required: 'Jumlah harus diisi',
-                      min: { value: 1, message: 'Jumlah minimal Rp 1' },
-                      max: { value: 999999999999, message: 'Jumlah terlalu besar' }
-                    }}
-                    render={({ field }) => (
-                      <CurrencyInput
-                        value={field.value}
-                        onChange={field.onChange}
-                        placeholder="Masukkan jumlah"
-                      />
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="amount">Jumlah</Label>
+                    <Input
+                      id="amount"
+                      type="number"
+                      placeholder="0"
+                      {...register('amount')}
+                      className={errors.amount ? 'border-red-500' : ''}
+                    />
+                    {errors.amount && (
+                      <p className="text-sm text-red-600">{errors.amount.message}</p>
                     )}
-                  />
-                  {errors.amount && (
-                    <p className="text-sm text-red-500">{errors.amount.message}</p>
-                  )}
-                </div>
+                  </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="category">Kategori</Label>
-                  <Controller
-                    name="category"
-                    control={control}
-                    rules={{ required: 'Kategori harus dipilih' }}
-                    render={({ field }) => (
-                      <Select onValueChange={field.onChange} value={field.value}>
-                        <SelectTrigger>
-                          <SelectValue placeholder="Pilih kategori" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {watchedType && categories[watchedType] && categories[watchedType].map((category) => (
-                            <SelectItem key={category} value={category}>
-                              {category}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
+                  <div className="space-y-2">
+                    <Label htmlFor="category">Kategori</Label>
+                    <Select 
+                      value={watch('category') || ''} 
+                      onValueChange={(value) => setValue('category', value)}
+                    >
+                      <SelectTrigger className={errors.category ? 'border-red-500' : ''}>
+                        <SelectValue placeholder="Pilih kategori" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {filteredCategories.map((category) => (
+                          <SelectItem key={category.id} value={category.name}>
+                            <div className="flex items-center gap-2">
+                              <span>{category.icon}</span>
+                              <span>{category.name}</span>
+                            </div>
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                    {errors.category && (
+                      <p className="text-sm text-red-600">{errors.category.message}</p>
                     )}
-                  />
-                  {errors.category && (
-                    <p className="text-sm text-red-500">{errors.category.message}</p>
-                  )}
+                  </div>
                 </div>
 
                 <div className="space-y-2">
@@ -392,283 +301,178 @@ export default function TransactionsPage() {
                   <Input
                     id="date"
                     type="date"
-                    max={new Date().toISOString().split('T')[0]}
-                    {...register('date', { required: 'Tanggal harus diisi' })}
+                    {...register('date')}
+                    className={errors.date ? 'border-red-500' : ''}
                   />
                   {errors.date && (
-                    <p className="text-sm text-red-500">{errors.date.message}</p>
+                    <p className="text-sm text-red-600">{errors.date.message}</p>
                   )}
                 </div>
 
                 <div className="space-y-2">
-                  <Label htmlFor="note">Catatan</Label>
+                  <Label htmlFor="note">Catatan (Opsional)</Label>
                   <Textarea
                     id="note"
-                    placeholder="Catatan tambahan (opsional)"
+                    placeholder="Tambahkan catatan..."
                     {...register('note')}
                   />
                 </div>
 
-                <div className="flex gap-2">
-                  <Button type="submit" className="flex-1">
-                    {editingTransaction ? 'Perbarui' : 'Simpan'}
+                <div className="flex gap-3">
+                  <Button type="submit" disabled={loading} className="flex-1">
+                    {loading ? 'Menyimpan...' : 'Simpan Transaksi'}
                   </Button>
-                  <Button type="button" variant="outline" onClick={handleCloseDialog}>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    onClick={() => setShowForm(false)}
+                  >
                     Batal
                   </Button>
                 </div>
               </form>
-            </DialogContent>
-          </Dialog>
-        </div>
-
-        {/* Month Navigation & Summary */}
-        <div className="grid gap-4 md:grid-cols-2">
-          {/* Month Filter */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <Calendar className="h-5 w-5" />
-                Filter Bulan
-              </CardTitle>
-            </CardHeader>
-            <CardContent className="flex items-center justify-between">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigateMonth('prev')}
-              >
-                <ChevronLeft className="h-4 w-4 mr-2" />
-                Sebelumnya
-              </Button>
-              
-              <div className="text-center">
-                <h3 className="text-lg font-semibold">{formatMonthYear(selectedMonth)}</h3>
-                <p className="text-sm text-muted-foreground">
-                  {transactions.length} transaksi
-                </p>
-              </div>
-              
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => navigateMonth('next')}
-                disabled={selectedMonth.getMonth() >= new Date().getMonth() && selectedMonth.getFullYear() >= new Date().getFullYear()}
-              >
-                Selanjutnya
-                <ChevronRight className="h-4 w-4 ml-2" />
-              </Button>
             </CardContent>
           </Card>
+        )}
 
-          {/* Monthly Summary */}
-          <Card>
-            <CardHeader>
-              <CardTitle className="flex items-center gap-2">
-                <TrendingUp className="h-5 w-5" />
-                Ringkasan {formatMonthYear(selectedMonth)}
-              </CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-emerald-600 flex items-center gap-1">
-                    <TrendingUp className="h-3 w-3" />
-                    Pemasukan
-                  </span>
-                  <span className="font-semibold text-emerald-600">
-                    {formatCurrency(totalIncome)}
-                  </span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-red-600 flex items-center gap-1">
-                    <TrendingDown className="h-3 w-3" />
-                    Pengeluaran
-                  </span>
-                  <span className="font-semibold text-red-600">
-                    {formatCurrency(totalExpense)}
-                  </span>
-                </div>
-                <div className="border-t pt-2">
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm font-medium">Saldo</span>
-                    <span className={`font-bold ${
-                      balance >= 0 ? 'text-emerald-600' : 'text-red-600'
-                    }`}>
-                      {formatCurrency(balance)}
-                    </span>
-                  </div>
+        {/* Filters */}
+        <Card>
+          <CardContent className="p-4">
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="flex-1">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+                  <Input
+                    placeholder="Cari transaksi..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
                 </div>
               </div>
-            </CardContent>
-          </Card>
-        </div>
+              
+              <Select value={filterWallet} onValueChange={setFilterWallet}>
+                <SelectTrigger className="w-full sm:w-48">
+                  <SelectValue placeholder="Filter Sumber Saldo" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Sumber Saldo</SelectItem>
+                  {wallets.map((wallet) => (
+                    <SelectItem key={wallet.id} value={wallet.id}>
+                      <div className="flex items-center gap-2">
+                        <span>{getWalletTypeIcon(wallet.type)}</span>
+                        <span>{wallet.name}</span>
+                      </div>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
 
-        {/* Search and Filter */}
-        <div className="flex flex-col sm:flex-row gap-4">
-          <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground h-4 w-4" />
-            <Input
-              placeholder="Cari transaksi..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10"
-            />
-          </div>
-          <Select value={filterType} onValueChange={(value: any) => setFilterType(value)}>
-            <SelectTrigger className="w-full sm:w-[180px]">
-              <Filter className="h-4 w-4 mr-2" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">Semua Jenis</SelectItem>
-              <SelectItem value="pemasukan">Pemasukan</SelectItem>
-              <SelectItem value="pengeluaran">Pengeluaran</SelectItem>
-            </SelectContent>
-          </Select>
-        </div>
+              <Select value={filterType} onValueChange={setFilterType}>
+                <SelectTrigger className="w-full sm:w-40">
+                  <SelectValue placeholder="Filter Jenis" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">Semua Jenis</SelectItem>
+                  <SelectItem value="pemasukan">Pemasukan</SelectItem>
+                  <SelectItem value="pengeluaran">Pengeluaran</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </CardContent>
+        </Card>
 
         {/* Transactions List */}
-        <div className="space-y-4">
-          {loading ? (
-            <div className="flex justify-center py-8">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <CardTitle>Daftar Transaksi</CardTitle>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => setShowBalances(!showBalances)}
+              >
+                {showBalances ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </Button>
             </div>
-          ) : filteredTransactions.length === 0 ? (
-            <Card>
-              <CardContent className="flex flex-col items-center justify-center py-8">
-                <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
-                <h3 className="font-semibold mb-2">
-                  {transactions.length === 0 
-                    ? `Belum ada transaksi di ${formatMonthYear(selectedMonth)}`
-                    : 'Tidak ada transaksi yang sesuai dengan filter'
-                  }
-                </h3>
-                <p className="text-muted-foreground mb-4 text-center">
-                  {transactions.length === 0 
-                    ? 'Mulai catat pemasukan dan pengeluaran Anda untuk bulan ini'
-                    : 'Coba ubah kata kunci pencarian atau filter jenis transaksi'
-                  }
-                </p>
-                {transactions.length === 0 && (
-                  <Button onClick={() => setDialogOpen(true)}>
-                    <Plus className="h-4 w-4 mr-2" />
-                    Tambah Transaksi Pertama
-                  </Button>
-                )}
-              </CardContent>
-            </Card>
-          ) : (
-            <>
-              {/* Results Info */}
-              <div className="flex items-center justify-between text-sm text-muted-foreground">
-                <span>
-                  Menampilkan {filteredTransactions.length} dari {transactions.length} transaksi
-                </span>
-                {(searchTerm || filterType !== 'all') && (
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => {
-                      setSearchTerm('');
-                      setFilterType('all');
-                    }}
-                  >
-                    Reset Filter
-                  </Button>
-                )}
-              </div>
-
-              {/* Transaction Cards */}
-              {filteredTransactions.map((transaction) => (
-                <Card key={transaction.id} className="hover:shadow-md transition-shadow">
-                  <CardContent className="flex items-center justify-between p-4">
-                    <div className="flex items-center space-x-4">
-                      <div className={`p-2 rounded-full ${
-                        transaction.type === 'pemasukan' 
-                          ? 'bg-emerald-100 text-emerald-600' 
-                          : 'bg-red-100 text-red-600'
-                      }`}>
-                        {transaction.type === 'pemasukan' ? (
-                          <TrendingUp className="h-4 w-4" />
-                        ) : (
-                          <TrendingDown className="h-4 w-4" />
-                        )}
+          </CardHeader>
+          <CardContent>
+            {filteredTransactions.length > 0 ? (
+              <div className="space-y-3">
+                {filteredTransactions.map((transaction) => {
+                  const wallet = getWalletById(transaction.wallet_id);
+                  return (
+                    <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
+                      <div className="flex items-center space-x-4">
+                        <div className={`w-4 h-4 rounded-full ${
+                          transaction.type === 'pemasukan' ? 'bg-emerald-500' : 'bg-red-500'
+                        }`} />
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <p className="font-medium">{transaction.category}</p>
+                            <Badge 
+                              variant={transaction.type === 'pemasukan' ? 'default' : 'destructive'}
+                              className="text-xs"
+                            >
+                              {transaction.type}
+                            </Badge>
+                          </div>
+                          <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                            <Calendar className="h-3 w-3" />
+                            <span>{new Date(transaction.date).toLocaleDateString('id-ID')}</span>
+                            {wallet && (
+                              <>
+                                <span>•</span>
+                                <Wallet className="h-3 w-3" />
+                                <span className="flex items-center gap-1">
+                                  {getWalletTypeIcon(wallet.type)}
+                                  {wallet.name}
+                                </span>
+                              </>
+                            )}
+                          </div>
+                          {transaction.note && (
+                            <p className="text-sm text-muted-foreground mt-1">{transaction.note}</p>
+                          )}
+                        </div>
                       </div>
-                      <div>
-                        <p className="font-medium">{transaction.category}</p>
-                        <p className="text-sm text-muted-foreground">
-                          {formatDate(transaction.date)}
-                        </p>
-                        {transaction.note && (
-                          <p className="text-sm text-muted-foreground mt-1 max-w-[300px] break-words">
-                            {transaction.note}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex items-center space-x-2">
                       <div className="text-right">
-                        <p className={`font-semibold text-lg ${
+                        <p className={`text-lg font-semibold ${
                           transaction.type === 'pemasukan' 
                             ? 'text-emerald-600' 
                             : 'text-red-600'
                         }`}>
                           {transaction.type === 'pemasukan' ? '+' : '-'}
-                          {formatCurrency(transaction.amount)}
+                          {showBalances 
+                            ? formatCurrency(transaction.amount / 100)
+                            : '••••••'
+                          }
+                        </p>
+                        <p className="text-xs text-muted-foreground">
+                          {new Date(transaction.created_at).toLocaleString('id-ID')}
                         </p>
                       </div>
-                      <div className="flex space-x-1">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(transaction)}
-                          className="h-8 w-8 p-0"
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleDelete(transaction.id)}
-                          className="h-8 w-8 p-0 text-red-600 hover:text-red-700 hover:bg-red-50"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
                     </div>
-                  </CardContent>
-                </Card>
-              ))}
-            </>
-          )}
-        </div>
-
-        {/* Quick Stats Footer */}
-        {filteredTransactions.length > 0 && (
-          <Card>
-            <CardContent className="p-4">
-              <div className="grid grid-cols-3 gap-4 text-center">
-                <div>
-                  <p className="text-sm text-muted-foreground">Total Transaksi</p>
-                  <p className="text-2xl font-bold">{filteredTransactions.length}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Pemasukan</p>
-                  <p className="text-2xl font-bold text-emerald-600">
-                    {filteredTransactions.filter(t => t.type === 'pemasukan').length}
-                  </p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Pengeluaran</p>
-                  <p className="text-2xl font-bold text-red-600">
-                    {filteredTransactions.filter(t => t.type === 'pengeluaran').length}
-                  </p>
-                </div>
+                  );
+                })}
               </div>
-            </CardContent>
-          </Card>
-        )}
+            ) : (
+              <div className="flex flex-col items-center justify-center py-8">
+                <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
+                <p className="text-muted-foreground mb-4">
+                  {searchQuery || filterWallet !== 'all' || filterType !== 'all' 
+                    ? 'Tidak ada transaksi yang sesuai dengan filter'
+                    : 'Belum ada transaksi'
+                  }
+                </p>
+                <Button onClick={() => setShowForm(true)}>
+                  <Plus className="h-4 w-4 mr-2" />
+                  Tambah Transaksi
+                </Button>
+              </div>
+            )}
+          </CardContent>
+        </Card>
       </div>
     </DashboardLayout>
   );

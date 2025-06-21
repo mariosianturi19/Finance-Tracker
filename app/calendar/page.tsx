@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { DashboardLayout } from '@/components/layout/dashboard-layout';
+import { DashboardLayout } from '@/components/layouts/dashboard-layout';
 import { supabase, Transaction } from '@/lib/supabase';
 import { useAuth } from '@/components/providers/auth-provider';
 import { formatCurrency, getCurrentJakartaTime } from '@/lib/timezone';

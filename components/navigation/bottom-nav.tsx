@@ -1,50 +1,68 @@
+// components/navigation/bottom-nav.tsx
 'use client';
 
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { 
-  Home, 
-  CreditCard, 
-  Calendar, 
-  User, 
-  Settings 
-} from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { 
+  LayoutDashboard, 
+  Receipt, 
+  BarChart3, 
+  Target, 
+  Wallet
+} from 'lucide-react';
 
 const navItems = [
-  { href: '/dashboard', label: 'Home', icon: Home },
-  { href: '/transactions', label: 'Transaksi', icon: CreditCard },
-  { href: '/calendar', label: 'Kalender', icon: Calendar },
-  { href: '/profile', label: 'Profil', icon: User },
-  { href: '/settings', label: 'Pengaturan', icon: Settings },
+  {
+    href: '/dashboard',
+    icon: LayoutDashboard,
+    label: 'Dashboard',
+  },
+  {
+    href: '/transactions',
+    icon: Receipt,
+    label: 'Transaksi',
+  },
+  {
+    href: '/wallets',
+    icon: Wallet,
+    label: 'Saldo',
+  },
+  {
+    href: '/reports',
+    icon: BarChart3,
+    label: 'Laporan',
+  },
+  {
+    href: '/budgets',
+    icon: Target,
+    label: 'Budget',
+  },
 ];
 
 export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-50 bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60 border-t border-border md:hidden">
-      <div className="flex items-center justify-around py-2">
-        {navItems.map(({ href, label, icon: Icon }) => {
-          const isActive = pathname === href;
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-sm border-t border-border md:hidden">
+      <div className="flex">
+        {navItems.map((item) => {
+          const isActive = pathname === item.href;
+          const Icon = item.icon;
+          
           return (
             <Link
-              key={href}
-              href={href}
+              key={item.href}
+              href={item.href}
               className={cn(
-                'flex flex-col items-center justify-center min-w-0 flex-1 py-2 px-1 text-xs transition-colors',
+                "flex flex-1 flex-col items-center justify-center py-3 px-2 text-xs font-medium transition-colors min-h-[60px]",
                 isActive
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-muted-foreground hover:text-foreground'
+                  ? "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/50"
+                  : "text-muted-foreground hover:text-foreground"
               )}
             >
-              <Icon 
-                className={cn(
-                  'h-5 w-5 mb-1',
-                  isActive && 'fill-current'
-                )} 
-              />
-              <span className="truncate">{label}</span>
+              <Icon className="h-5 w-5 mb-1" />
+              <span className="text-[10px] leading-tight text-center">{item.label}</span>
             </Link>
           );
         })}
