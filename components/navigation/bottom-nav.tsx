@@ -1,4 +1,3 @@
-// components/navigation/bottom-nav.tsx
 'use client';
 
 import Link from 'next/link';
@@ -9,7 +8,8 @@ import {
   Receipt, 
   BarChart3, 
   Target, 
-  Wallet
+  Wallet,
+  User
 } from 'lucide-react';
 
 const navItems = [
@@ -27,6 +27,11 @@ const navItems = [
     href: '/wallets',
     icon: Wallet,
     label: 'Saldo',
+  },
+  {
+    href: '/profile',
+    icon: User,
+    label: 'Profile',
   },
 ];
 

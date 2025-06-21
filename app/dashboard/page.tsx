@@ -138,7 +138,7 @@ export default function DashboardPage() {
           <div className="flex gap-2">
             <Button 
               variant="outline" 
-              onClick={() => router.push('/wallet-setup')}
+              onClick={() => router.push('/wallets')}
               className="w-full sm:w-auto"
             >
               <Wallet className="h-4 w-4 mr-2" />
@@ -343,45 +343,6 @@ export default function DashboardPage() {
             )}
           </CardContent>
         </Card>
-
-        {/* Quick Actions */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/transactions')}>
-            <CardContent className="flex items-center justify-center p-6">
-              <div className="text-center">
-                <div className="p-3 bg-blue-100 rounded-full w-fit mx-auto mb-2">
-                  <Plus className="h-6 w-6 text-blue-600" />
-                </div>
-                <h3 className="font-semibold">Tambah Transaksi</h3>
-               <p className="text-sm text-muted-foreground">Catat pemasukan atau pengeluaran</p>
-             </div>
-           </CardContent>
-         </Card>
-
-         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/reports')}>
-           <CardContent className="flex items-center justify-center p-6">
-             <div className="text-center">
-               <div className="p-3 bg-green-100 rounded-full w-fit mx-auto mb-2">
-                 <TrendingUp className="h-6 w-6 text-green-600" />
-               </div>
-               <h3 className="font-semibold">Lihat Laporan</h3>
-               <p className="text-sm text-muted-foreground">Analisis keuangan mendalam</p>
-             </div>
-           </CardContent>
-         </Card>
-
-         <Card className="cursor-pointer hover:shadow-md transition-shadow" onClick={() => router.push('/wallets')}>
-           <CardContent className="flex items-center justify-center p-6">
-             <div className="text-center">
-               <div className="p-3 bg-purple-100 rounded-full w-fit mx-auto mb-2">
-                 <Wallet className="h-6 w-6 text-purple-600" />
-               </div>
-               <h3 className="font-semibold">Kelola Saldo</h3>
-               <p className="text-sm text-muted-foreground">Atur sumber saldo Anda</p>
-             </div>
-           </CardContent>
-         </Card>
-       </div>
      </div>
    </DashboardLayout>
  );
