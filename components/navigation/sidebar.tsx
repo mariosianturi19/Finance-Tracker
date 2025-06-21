@@ -38,16 +38,6 @@ const navItems = [
     label: 'Kelola Saldo',
   },
   {
-    href: '/reports',
-    icon: BarChart3,
-    label: 'Laporan',
-  },
-  {
-    href: '/budgets',
-    icon: Target,
-    label: 'Budget',
-  },
-  {
     href: '/settings',
     icon: Settings,
     label: 'Pengaturan',

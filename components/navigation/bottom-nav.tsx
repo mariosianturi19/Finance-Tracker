@@ -28,16 +28,6 @@ const navItems = [
     icon: Wallet,
     label: 'Saldo',
   },
-  {
-    href: '/reports',
-    icon: BarChart3,
-    label: 'Laporan',
-  },
-  {
-    href: '/budgets',
-    icon: Target,
-    label: 'Budget',
-  },
 ];
 
 export function BottomNav() {
