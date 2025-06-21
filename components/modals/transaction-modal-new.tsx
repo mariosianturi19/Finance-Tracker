@@ -8,27 +8,10 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from '@/components/ui/select';
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogFooter,
-} from '@/components/ui/dialog';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Calendar } from '@/components/ui/calendar';
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from '@/components/ui/popover';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { cn } from '@/lib/utils';
 import { formatCurrency } from '@/lib/utils';
 import { CalendarIcon } from 'lucide-react';
@@ -41,14 +24,11 @@ import { getWalletTypeIcon } from '@/lib/wallets';
 
 // Number formatting utilities
 const formatNumber = (value: string) => {
-  // Remove all non-digit characters
   const number = value.replace(/\D/g, '');
-  // Add thousand separators
   return number.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 };
 
 const parseNumber = (value: string) => {
-  // Remove thousand separators and convert to number
   return parseFloat(value.replace(/\./g, '')) || 0;
 };
 
@@ -87,30 +67,24 @@ export function TransactionModal({
   const [loading, setLoading] = useState(false);
   const [amountDisplay, setAmountDisplay] = useState('');
 
-  const {
-    register,
-    handleSubmit,
-    reset,
-    setValue,
-    watch,
-    formState: { errors },
-  } = useForm<TransactionFormData>({
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<TransactionFormData>({
     resolver: zodResolver(transactionSchema),
     defaultValues: {
       type: 'pengeluaran',
       date: new Date(),
     },
   });
-
   useEffect(() => {
     if (editingTransaction) {
       setValue('type', editingTransaction.type);
       setValue('category', editingTransaction.category);
       setValue('source', editingTransaction.wallet_id || '');
-      setValue('date', new Date(editingTransaction.date));
+      
+      // Parse date correctly to avoid timezone issues
+      const transactionDate = new Date(editingTransaction.date + 'T00:00:00');
+      setValue('date', transactionDate);
       setValue('description', editingTransaction.note || '');
       
-      // Format amount for display
       const amountValue = (editingTransaction.amount / 100).toString();
       setAmountDisplay(formatNumber(amountValue));
       setValue('amount', editingTransaction.amount / 100);
@@ -150,15 +124,14 @@ export function TransactionModal({
   };
 
   const availableCategories = categories.filter(cat => cat.type === watch('type'));
-
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[500px]">
-        <DialogHeader>
-          <DialogTitle>
+      <DialogContent className="sm:max-w-[450px] max-h-[90vh] overflow-y-auto">
+        <DialogHeader className="pb-3">
+          <DialogTitle className="text-lg">
             {editingTransaction ? 'Edit Transaksi' : 'Tambah Transaksi'}
           </DialogTitle>
-          <DialogDescription>
+          <DialogDescription className="text-sm">
             {editingTransaction 
               ? 'Perbarui informasi transaksi Anda'
               : 'Tambahkan transaksi pemasukan atau pengeluaran baru'
@@ -166,14 +139,13 @@ export function TransactionModal({
           </DialogDescription>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit(onSubmitHandler)} className="space-y-6">
-          <div className="space-y-2">
-            <Label htmlFor="type">Jenis Transaksi</Label>
+        <form onSubmit={handleSubmit(onSubmitHandler)} className="space-y-4">          <div className="space-y-1.5">
+            <Label htmlFor="type" className="text-sm">Jenis Transaksi</Label>
             <Select 
               value={watch('type')} 
               onValueChange={(value: 'pemasukan' | 'pengeluaran') => setValue('type', value)}
             >
-              <SelectTrigger className={errors.type ? 'border-red-500' : ''}>
+              <SelectTrigger className={`h-9 ${errors.type ? 'border-red-500' : ''}`}>
                 <SelectValue placeholder="Pilih jenis transaksi" />
               </SelectTrigger>
               <SelectContent>
@@ -182,37 +154,37 @@ export function TransactionModal({
               </SelectContent>
             </Select>
             {errors.type && (
-              <p className="text-sm text-red-600">{errors.type.message}</p>
+              <p className="text-xs text-red-600">{errors.type.message}</p>
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="amount">Jumlah</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="amount" className="text-sm">Jumlah</Label>
             <Input
               id="amount"
               type="text"
               placeholder="0"
               value={amountDisplay}
               onChange={handleAmountChange}
-              className={errors.amount ? 'border-red-500' : ''}
+              className={`h-9 ${errors.amount ? 'border-red-500' : ''}`}
             />
             {errors.amount && (
-              <p className="text-sm text-red-600">{errors.amount.message}</p>
+              <p className="text-xs text-red-600">{errors.amount.message}</p>
             )}
             {amountDisplay && (
-              <p className="text-sm text-muted-foreground">
+              <p className="text-xs text-muted-foreground">
                 {formatCurrency(parseNumber(amountDisplay))}
               </p>
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="source">Sumber Saldo</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="source" className="text-sm">Sumber Saldo</Label>
             <Select 
               value={watch('source')} 
               onValueChange={(value) => setValue('source', value)}
             >
-              <SelectTrigger className={errors.source ? 'border-red-500' : ''}>
+              <SelectTrigger className={`h-9 ${errors.source ? 'border-red-500' : ''}`}>
                 <SelectValue placeholder="Pilih sumber saldo" />
               </SelectTrigger>
               <SelectContent>
@@ -220,8 +192,8 @@ export function TransactionModal({
                   <SelectItem key={wallet.id} value={wallet.id}>
                     <div className="flex items-center gap-2">
                       <span>{getWalletTypeIcon(wallet.type)}</span>
-                      <span>{wallet.name}</span>
-                      <span className="text-muted-foreground">
+                      <span className="truncate">{wallet.name}</span>
+                      <span className="text-muted-foreground text-xs">
                         ({formatCurrency(wallet.current_balance / 100)})
                       </span>
                     </div>
@@ -230,17 +202,17 @@ export function TransactionModal({
               </SelectContent>
             </Select>
             {errors.source && (
-              <p className="text-sm text-red-600">{errors.source.message}</p>
+              <p className="text-xs text-red-600">{errors.source.message}</p>
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="category">Kategori</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="category" className="text-sm">Kategori</Label>
             <Select 
               value={watch('category')} 
               onValueChange={(value) => setValue('category', value)}
             >
-              <SelectTrigger className={errors.category ? 'border-red-500' : ''}>
+              <SelectTrigger className={`h-9 ${errors.category ? 'border-red-500' : ''}`}>
                 <SelectValue placeholder="Pilih kategori" />
               </SelectTrigger>
               <SelectContent>
@@ -255,24 +227,26 @@ export function TransactionModal({
               </SelectContent>
             </Select>
             {errors.category && (
-              <p className="text-sm text-red-600">{errors.category.message}</p>
+              <p className="text-xs text-red-600">{errors.category.message}</p>
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="date">Tanggal</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="date" className="text-sm">Tanggal</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
                   className={cn(
-                    "w-full justify-start text-left font-normal",
+                    "w-full justify-start text-left font-normal h-9",
                     !watch('date') && "text-muted-foreground",
                     errors.date && "border-red-500"
                   )}
                 >
-                  <CalendarIcon className="mr-2 h-4 w-4" />
-                  {watch('date') ? format(watch('date'), "PPP", { locale: id }) : "Pilih tanggal"}
+                  <CalendarIcon className="mr-2 h-3 w-3" />
+                  <span className="text-sm">
+                    {watch('date') ? format(watch('date'), "PPP", { locale: id }) : "Pilih tanggal"}
+                  </span>
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="w-auto p-0">
@@ -285,25 +259,26 @@ export function TransactionModal({
               </PopoverContent>
             </Popover>
             {errors.date && (
-              <p className="text-sm text-red-600">{errors.date.message}</p>
+              <p className="text-xs text-red-600">{errors.date.message}</p>
             )}
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="description">Catatan (Opsional)</Label>
+          <div className="space-y-1.5">
+            <Label htmlFor="description" className="text-sm">Catatan (Opsional)</Label>
             <Textarea
               id="description"
               placeholder="Tambahkan catatan transaksi..."
               {...register('description')}
-              className="resize-none"
+              className="resize-none min-h-[60px] text-sm"
+              rows={2}
             />
           </div>
 
-          <DialogFooter>
-            <Button type="button" variant="outline" onClick={onClose}>
+          <DialogFooter className="pt-4 gap-2">
+            <Button type="button" variant="outline" onClick={onClose} className="h-9">
               Batal
             </Button>
-            <Button type="submit" disabled={loading}>
+            <Button type="submit" disabled={loading} className="h-9">
               {loading ? 'Menyimpan...' : (editingTransaction ? 'Perbarui' : 'Simpan')}
             </Button>
           </DialogFooter>

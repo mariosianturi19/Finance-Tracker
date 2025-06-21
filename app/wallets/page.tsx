@@ -26,7 +26,10 @@ import { WalletWithBalance, WalletType } from '@/lib/types';
 const walletSchema = z.object({
   name: z.string().min(1, 'Nama wallet harus diisi'),
   type: z.enum(['bank', 'ewallet', 'cash']),
-  initial_balance: z.string().min(1, 'Saldo awal harus diisi'),
+  initial_balance: z.string().refine((val) => {
+    const num = parseFloat(val);
+    return !isNaN(num) && num >= 0;
+  }, 'Saldo awal harus berupa angka yang valid'),
 });
 
 type WalletFormData = z.infer<typeof walletSchema>;
@@ -49,19 +52,19 @@ export default function WalletsPage() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
   const [selectedWallet, setSelectedWallet] = useState<WalletWithBalance | null>(null);
   const [walletStats, setWalletStats] = useState<Record<string, WalletStats>>({});
-
   const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<WalletFormData>({
     resolver: zodResolver(walletSchema),
     defaultValues: {
+      name: '',
       type: 'cash',
+      initial_balance: '0',
     },
   });
-
   useEffect(() => {
-    if (user) {
+    if (user && wallets.length === 0) {
       fetchWallets();
     }
-  }, [user]);
+  }, [user, wallets.length]);
 
   const fetchWallets = async () => {
     try {
@@ -88,11 +91,16 @@ export default function WalletsPage() {
       setLoading(false);
     }
   };
-
   const onSubmit = async (data: WalletFormData) => {
     setLoading(true);
     try {
-      const amountInCents = Math.round(parseFloat(data.initial_balance) * 100);
+      const amount = parseFloat(data.initial_balance);
+      if (isNaN(amount)) {
+        toast.error('Saldo awal harus berupa angka yang valid');
+        return;
+      }
+      
+      const amountInCents = Math.round(amount * 100);
       
       if (selectedWallet) {
         // Update existing wallet
@@ -116,15 +124,16 @@ export default function WalletsPage() {
 
       reset();
       setSelectedWallet(null);
-      fetchWallets();
+      await fetchWallets();
     } catch (error: any) {
+      console.error('Wallet operation error:', error);
       toast.error(error.message || 'Gagal menyimpan wallet');
     } finally {
       setLoading(false);
     }
   };
-
   const handleEdit = (wallet: WalletWithBalance) => {
+    console.log('Edit wallet:', wallet);
     setSelectedWallet(wallet);
     setValue('name', wallet.name);
     setValue('type', wallet.type);
@@ -133,6 +142,7 @@ export default function WalletsPage() {
   };
 
   const handleDelete = (wallet: WalletWithBalance) => {
+    console.log('Delete wallet:', wallet);
     setSelectedWallet(wallet);
     setShowDeleteDialog(true);
   };
@@ -152,10 +162,13 @@ export default function WalletsPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleAddNew = () => {
-    reset();
+  };  const handleAddNew = () => {
+    console.log('Adding new wallet');
+    reset({
+      name: '',
+      type: 'cash',
+      initial_balance: '0',
+    });
     setSelectedWallet(null);
     setShowAddDialog(true);
   };
@@ -247,9 +260,7 @@ export default function WalletsPage() {
               </p>
             </CardContent>
           </Card>
-        </div>
-
-        {/* Wallets Grid */}
+        </div>        {/* Wallets Grid */}
         {wallets.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {wallets.map((wallet) => (
@@ -257,9 +268,9 @@ export default function WalletsPage() {
                 key={wallet.id}
                 wallet={wallet}
                 showBalance={showBalance}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onClick={(wallet) => router.push(`/wallets/${wallet.id}`)}
+                onEdit={() => handleEdit(wallet)}
+                onDelete={() => handleDelete(wallet)}
+                onClick={() => router.push(`/wallets/${wallet.id}`)}
               />
             ))}
           </div>
@@ -277,15 +288,18 @@ export default function WalletsPage() {
               </Button>
             </CardContent>
           </Card>
-        )}
-
-        {/* Add/Edit Wallet Dialog */}
+        )}        {/* Add/Edit Wallet Dialog */}
         <Dialog open={showAddDialog || showEditDialog} onOpenChange={(open) => {
+          console.log('Dialog open change:', open);
           if (!open) {
             setShowAddDialog(false);
             setShowEditDialog(false);
             setSelectedWallet(null);
-            reset();
+            reset({
+              name: '',
+              type: 'cash',
+              initial_balance: '0',
+            });
           }
         }}>
           <DialogContent>
@@ -329,13 +343,12 @@ export default function WalletsPage() {
                     <SelectItem value="cash">💵 Cash</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>
-
-              <div className="space-y-2">
+              </div>              <div className="space-y-2">
                 <Label htmlFor="initial_balance">Saldo Awal</Label>
                 <Input
                   id="initial_balance"
                   type="number"
+                  step="0.01"
                   placeholder="0"
                   {...register('initial_balance')}
                   className={errors.initial_balance ? 'border-red-500' : ''}

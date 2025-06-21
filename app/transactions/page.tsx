@@ -8,8 +8,8 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { DashboardLayout } from '@/components/layouts/dashboard-layout';
 import { useAuth } from '@/components/providers/auth-provider';
-import { TransactionModal } from '@/components/modals/transaction-modal';
-import { createTransaction, getTransactions, Transaction } from '@/lib/transactions';
+import { TransactionModal } from '@/components/modals/transaction-modal-new';
+import { createTransaction, getTransactions, Transaction, updateTransaction, deleteTransaction } from '@/lib/transactions';
 import { getCategories, Category } from '@/lib/categories';
 import { getWallets, getWalletTypeIcon } from '@/lib/wallets';
 import { formatCurrency } from '@/lib/utils';
@@ -24,12 +24,18 @@ import {
   Eye,
   EyeOff,
   Filter,
-  X
+  X,
+  Edit,
+  Trash2,
+  MoreVertical
 } from 'lucide-react';
 import { WalletWithBalance } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from '@/components/ui/dropdown-menu';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle } from '@/components/ui/alert-dialog';
 
 interface TransactionFormData {
+  id?: string;
   type: 'pemasukan' | 'pengeluaran';
   amount: number;
   source: string;
@@ -37,6 +43,14 @@ interface TransactionFormData {
   date: Date;
   description?: string;
 }
+
+// Helper function to format date for database without timezone issues
+const formatDateForDB = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 export default function TransactionsPage() {
   const { user } = useAuth();
@@ -51,12 +65,15 @@ export default function TransactionsPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [currentDate, setCurrentDate] = useState(new Date());
   const [showBalances, setShowBalances] = useState(true);
+  const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
+  const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null);
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   useEffect(() => {
-    if (user) {
+    if (user && transactions.length === 0) {
       fetchData();
     }
-  }, [user, currentDate]);
+  }, [user, transactions.length]);
 
   const fetchData = async () => {
     setLoading(true);
@@ -92,25 +109,63 @@ export default function TransactionsPage() {
 
     const amountInCents = Math.round(data.amount * 100);
 
-    // Validate sufficient balance for expenses
-    if (data.type === 'pengeluaran' && amountInCents > selectedWallet.current_balance) {
+    // Validate sufficient balance for expenses (skip for editing)
+    if (data.type === 'pengeluaran' && !data.id && amountInCents > selectedWallet.current_balance) {
       throw new Error(`Saldo ${selectedWallet.name} tidak mencukupi`);
     }
 
     try {
-      await createTransaction({
-        type: data.type,
-        amount: amountInCents,
-        category: data.category,
-        wallet_id: data.source,
-        note: data.description || null,
-        date: data.date.toISOString().split('T')[0],
-      });
+      if (data.id) {
+        // Update existing transaction
+        await updateTransaction(data.id, {
+          type: data.type,
+          amount: amountInCents,
+          category: data.category,
+          wallet_id: data.source,
+          note: data.description || null,
+          date: formatDateForDB(data.date),
+        });
+        toast.success('Transaksi berhasil diperbarui');
+      } else {
+        // Create new transaction
+        await createTransaction({
+          type: data.type,
+          amount: amountInCents,
+          category: data.category,
+          wallet_id: data.source,
+          note: data.description || null,
+          date: formatDateForDB(data.date),
+        });
+        toast.success('Transaksi berhasil ditambahkan');
+      }
 
-      toast.success('Transaksi berhasil ditambahkan');
       await fetchData(); // Refresh data
     } catch (error: any) {
-      throw new Error(error.message || 'Gagal menambahkan transaksi');
+      throw new Error(error.message || 'Gagal menyimpan transaksi');
+    }
+  };
+
+  const handleEditTransaction = (transaction: Transaction) => {
+    setEditingTransaction(transaction);
+    setIsModalOpen(true);
+  };
+
+  const handleDeleteTransaction = (transaction: Transaction) => {
+    setDeletingTransaction(transaction);
+    setShowDeleteDialog(true);
+  };
+
+  const confirmDeleteTransaction = async () => {
+    if (!deletingTransaction) return;
+
+    try {
+      await deleteTransaction(deletingTransaction.id);
+      toast.success('Transaksi berhasil dihapus');
+      setShowDeleteDialog(false);
+      setDeletingTransaction(null);
+      await fetchData();
+    } catch (error: any) {
+      toast.error(error.message || 'Gagal menghapus transaksi');
     }
   };
 
@@ -354,24 +409,46 @@ export default function TransactionsPage() {
                           )}
                         </div>
                       </div>
-                      <div className="text-right flex-shrink-0 ml-4">
-                        <p className={`text-lg font-semibold ${
-                          transaction.type === 'pemasukan' 
-                            ? 'text-emerald-600' 
-                            : 'text-red-600'
-                        }`}>
-                          {transaction.type === 'pemasukan' ? '+' : '-'}
-                          {showBalances 
-                            ? formatCurrency(transaction.amount / 100)
-                            : '••••••'
-                          }
-                        </p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(transaction.created_at).toLocaleString('id-ID', {
-                            hour: '2-digit',
-                            minute: '2-digit'
-                          })}
-                        </p>
+                      <div className="flex items-center gap-2">
+                        <div className="text-right">
+                          <p className={`text-lg font-semibold ${
+                            transaction.type === 'pemasukan' 
+                              ? 'text-emerald-600' 
+                              : 'text-red-600'
+                          }`}>
+                            {transaction.type === 'pemasukan' ? '+' : '-'}
+                            {showBalances 
+                              ? formatCurrency(transaction.amount / 100)
+                              : '••••••'
+                            }
+                          </p>
+                          <p className="text-xs text-muted-foreground">
+                            {new Date(transaction.created_at).toLocaleString('id-ID', {
+                              hour: '2-digit',
+                              minute: '2-digit'
+                            })}
+                          </p>
+                        </div>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                              <MoreVertical className="h-4 w-4" />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align="end">
+                            <DropdownMenuItem onClick={() => handleEditTransaction(transaction)}>
+                              <Edit className="h-4 w-4 mr-2" />
+                              Edit
+                            </DropdownMenuItem>
+                            <DropdownMenuItem 
+                              onClick={() => handleDeleteTransaction(transaction)}
+                              className="text-red-600"
+                            >
+                              <Trash2 className="h-4 w-4 mr-2" />
+                              Hapus
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
                       </div>
                     </div>
                   );
@@ -404,11 +481,36 @@ export default function TransactionsPage() {
         {/* Transaction Modal */}
         <TransactionModal
           isOpen={isModalOpen}
-          onClose={() => setIsModalOpen(false)}
+          onClose={() => {
+            setIsModalOpen(false);
+            setEditingTransaction(null);
+          }}
           onSubmit={handleAddTransaction}
           wallets={wallets}
           categories={categories}
+          editingTransaction={editingTransaction}
         />
+
+        {/* Delete Confirmation Dialog */}
+        <AlertDialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>Konfirmasi Hapus Transaksi</AlertDialogTitle>
+              <AlertDialogDescription>
+                Apakah Anda yakin ingin menghapus transaksi ini? Tindakan ini tidak dapat dibatalkan.
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel onClick={() => setShowDeleteDialog(false)}>
+                Batal
+              </AlertDialogCancel>
+              <AlertDialogAction onClick={confirmDeleteTransaction} className="bg-red-600 hover:bg-red-700">
+                Hapus
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
       </div>
     </DashboardLayout>
   );
