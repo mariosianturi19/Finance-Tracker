@@ -1,19 +1,13 @@
 import './globals.css';
 import type { Metadata, Viewport } from 'next';
 import { Inter } from 'next/font/google';
-import { Suspense } from 'react';
+import { ThemeProvider } from '@/components/providers/theme-provider';
+import { AuthProvider } from '@/components/providers/auth-provider';
 import dynamic from 'next/dynamic';
 
-const ThemeProvider = dynamic(() => import('@/components/providers/theme-provider').then(mod => ({ default: mod.ThemeProvider })), {
-  ssr: false
-});
-
-const AuthProvider = dynamic(() => import('@/components/providers/auth-provider').then(mod => ({ default: mod.AuthProvider })), {
-  ssr: false
-});
-
 const Toaster = dynamic(() => import('@/components/ui/sonner').then(mod => ({ default: mod.Toaster })), {
-  ssr: false
+  ssr: false,
+  loading: () => null
 });
 
 const inter = Inter({ 
@@ -33,7 +27,6 @@ export const viewport: Viewport = {
   ],
 }
 
-// Bersihkan metadata dari properti yang deprecated
 export const metadata: Metadata = {
   title: 'Personal Finance Tracker',
   description: 'Track your personal finances with ease',
@@ -45,7 +38,10 @@ export const metadata: Metadata = {
     statusBarStyle: 'default',
     title: 'Finance App',
   },
-  // Hapus themeColor dan viewport dari sini
+  other: {
+    'mobile-web-app-capable': 'yes',
+    'apple-mobile-web-app-capable': 'yes',
+  }
 };
 
 function LoadingFallback() {
@@ -60,28 +56,19 @@ export default function RootLayout({
   children,
 }: {
   children: React.ReactNode;
-}) {
-  return (
+}) {  return (
     <html lang="id" suppressHydrationWarning>
       <head>
         <link rel="apple-touch-icon" href="/icon-192x192.png" />
-        <meta name="theme-color" content="#ffffff" media="(prefers-color-scheme: light)" />
-        <meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)" />
+        <meta name="format-detection" content="telephone=no" />
       </head>
-      <body className={inter.className}>
-        <Suspense fallback={<LoadingFallback />}>
-          <ThemeProvider
-            attribute="class"
-            defaultTheme="system"
-            enableSystem
-            disableTransitionOnChange
-          >
-            <AuthProvider>
-              {children}
-              <Toaster />
-            </AuthProvider>
-          </ThemeProvider>
-        </Suspense>
+      <body className={inter.className} suppressHydrationWarning>
+        <ThemeProvider>
+          <AuthProvider>
+            {children}
+            <Toaster />
+          </AuthProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

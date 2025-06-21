@@ -11,9 +11,21 @@ export function ThemeProvider({ children, ...props }: ThemeProviderProps) {
     setMounted(true);
   }, []);
 
+  // Prevent flash during hydration
   if (!mounted) {
     return <>{children}</>;
   }
 
-  return <NextThemesProvider {...props}>{children}</NextThemesProvider>;
+  return (
+    <NextThemesProvider
+      {...props}
+      enableSystem
+      attribute="class"
+      defaultTheme="system"
+      disableTransitionOnChange
+      storageKey="finance-app-theme"
+    >
+      {children}
+    </NextThemesProvider>
+  );
 }
