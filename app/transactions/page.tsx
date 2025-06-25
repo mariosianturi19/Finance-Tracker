@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -69,13 +69,7 @@ export default function TransactionsPage() {
   const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null);
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
-  useEffect(() => {
-    if (user && transactions.length === 0) {
-      fetchData();
-    }
-  }, [user, transactions.length]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     setLoading(true);
     try {
       const [transactionsData, categoriesData, walletsData] = await Promise.all([
@@ -99,7 +93,13 @@ export default function TransactionsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [currentDate, router]);
+
+  useEffect(() => {
+    if (user && transactions.length === 0) {
+      fetchData();
+    }
+  }, [user, transactions.length, fetchData]);
 
   const handleAddTransaction = async (data: TransactionFormData) => {
     const selectedWallet = wallets.find(w => w.id === data.source);

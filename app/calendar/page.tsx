@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { DashboardLayout } from '@/components/layouts/dashboard-layout';
 import { supabase, Transaction } from '@/lib/supabase';
@@ -17,13 +17,7 @@ export default function CalendarPage() {
   const [selectedDate, setSelectedDate] = useState<string | null>(null);
   const { user } = useAuth();
 
-  useEffect(() => {
-    if (user) {
-      fetchTransactions();
-    }
-  }, [user, currentDate]);
-
-  const fetchTransactions = async () => {
+  const fetchTransactions = useCallback(async () => {
     try {
       const startOfMonth = currentDate.startOf('month').format('YYYY-MM-DD');
       const endOfMonth = currentDate.endOf('month').format('YYYY-MM-DD');
@@ -43,7 +37,13 @@ export default function CalendarPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [user?.id, currentDate]);
+
+  useEffect(() => {
+    if (user) {
+      fetchTransactions();
+    }
+  }, [user, fetchTransactions]);
 
   const getDaysInMonth = () => {
     const startOfMonth = currentDate.startOf('month');

@@ -1,7 +1,7 @@
 // app/wallets/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -60,13 +60,8 @@ export default function WalletsPage() {
       initial_balance: '0',
     },
   });
-  useEffect(() => {
-    if (user && wallets.length === 0) {
-      fetchWallets();
-    }
-  }, [user, wallets.length]);
 
-  const fetchWallets = async () => {
+  const fetchWallets = useCallback(async () => {
     try {
       setLoading(true);
       const walletsData = await getWallets();
@@ -90,7 +85,14 @@ export default function WalletsPage() {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => {
+    if (user && wallets.length === 0) {
+      fetchWallets();
+    }
+  }, [user, wallets.length, fetchWallets]);
+
   const onSubmit = async (data: WalletFormData) => {
     setLoading(true);
     try {
@@ -132,6 +134,7 @@ export default function WalletsPage() {
       setLoading(false);
     }
   };
+
   const handleEdit = (wallet: WalletWithBalance) => {
     console.log('Edit wallet:', wallet);
     setSelectedWallet(wallet);
@@ -162,7 +165,9 @@ export default function WalletsPage() {
     } finally {
       setLoading(false);
     }
-  };  const handleAddNew = () => {
+  };
+
+  const handleAddNew = () => {
     console.log('Adding new wallet');
     reset({
       name: '',
@@ -260,7 +265,9 @@ export default function WalletsPage() {
               </p>
             </CardContent>
           </Card>
-        </div>        {/* Wallets Grid */}
+        </div>
+
+        {/* Wallets Grid */}
         {wallets.length > 0 ? (
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
             {wallets.map((wallet) => (
@@ -288,7 +295,9 @@ export default function WalletsPage() {
               </Button>
             </CardContent>
           </Card>
-        )}        {/* Add/Edit Wallet Dialog */}
+        )}
+
+        {/* Add/Edit Wallet Dialog */}
         <Dialog open={showAddDialog || showEditDialog} onOpenChange={(open) => {
           console.log('Dialog open change:', open);
           if (!open) {
@@ -343,7 +352,9 @@ export default function WalletsPage() {
                     <SelectItem value="cash">💵 Cash</SelectItem>
                   </SelectContent>
                 </Select>
-              </div>              <div className="space-y-2">
+              </div>
+
+              <div className="space-y-2">
                 <Label htmlFor="initial_balance">Saldo Awal</Label>
                 <Input
                   id="initial_balance"
@@ -390,7 +401,7 @@ export default function WalletsPage() {
             <AlertDialogHeader>
               <AlertDialogTitle>Hapus Sumber Saldo?</AlertDialogTitle>
               <AlertDialogDescription>
-                Apakah Anda yakin ingin menghapus "{selectedWallet?.name}"? 
+                Apakah Anda yakin ingin menghapus &quot;{selectedWallet?.name}&quot;? 
                 Semua transaksi yang terkait dengan sumber saldo ini juga akan dihapus. 
                 Tindakan ini tidak dapat dibatalkan.
               </AlertDialogDescription>
