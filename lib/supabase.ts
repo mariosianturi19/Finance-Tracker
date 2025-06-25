@@ -12,9 +12,25 @@ export type Profile = Database['public']['Tables']['profiles']['Row'];
 export type ProfileInsert = Database['public']['Tables']['profiles']['Insert'];
 export type ProfileUpdate = Database['public']['Tables']['profiles']['Update'];
 
+export type Category = Database['public']['Tables']['categories']['Row'];
+export type CategoryInsert = Database['public']['Tables']['categories']['Insert'];
+export type CategoryUpdate = Database['public']['Tables']['categories']['Update'];
+
+export type Wallet = Database['public']['Tables']['wallets']['Row'];
+export type WalletInsert = Database['public']['Tables']['wallets']['Insert'];
+export type WalletUpdate = Database['public']['Tables']['wallets']['Update'];
+
 export type Transaction = Database['public']['Tables']['transactions']['Row'];
 export type TransactionInsert = Database['public']['Tables']['transactions']['Insert'];
 export type TransactionUpdate = Database['public']['Tables']['transactions']['Update'];
+
+export type Budget = Database['public']['Tables']['budgets']['Row'];
+export type BudgetInsert = Database['public']['Tables']['budgets']['Insert'];
+export type BudgetUpdate = Database['public']['Tables']['budgets']['Update'];
+
+export type SavingsGoal = Database['public']['Tables']['savings_goals']['Row'];
+export type SavingsGoalInsert = Database['public']['Tables']['savings_goals']['Insert'];
+export type SavingsGoalUpdate = Database['public']['Tables']['savings_goals']['Update'];
 
 // Test database connection
 export async function testDatabaseConnection() {
