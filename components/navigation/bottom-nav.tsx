@@ -9,7 +9,9 @@ import {
   BarChart3, 
   Target, 
   Wallet,
-  User
+  User,
+  FileText,
+  PiggyBank
 } from 'lucide-react';
 
 const navItems = [
@@ -29,6 +31,11 @@ const navItems = [
     label: 'Saldo',
   },
   {
+    href: '/reports',
+    icon: FileText,
+    label: 'Laporan',
+  },
+  {
     href: '/profile',
     icon: User,
     label: 'Profile',
@@ -39,7 +46,7 @@ export function BottomNav() {
   const pathname = usePathname();
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-card/95 backdrop-blur-sm border-t border-border md:hidden">
+    <nav className="fixed bottom-0 left-0 right-0 z-40 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-t border-slate-200 dark:border-slate-700 md:hidden shadow-2xl">
       <div className="flex">
         {navItems.map((item) => {
           const isActive = pathname === item.href;
@@ -50,13 +57,13 @@ export function BottomNav() {
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-1 flex-col items-center justify-center py-3 px-2 text-xs font-medium transition-colors min-h-[60px]",
+                "flex flex-1 flex-col items-center justify-center py-4 px-3 text-xs font-semibold transition-all duration-200 min-h-[64px] rounded-t-xl mx-1",
                 isActive
-                  ? "text-emerald-600 bg-emerald-50 dark:text-emerald-400 dark:bg-emerald-950/50"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "text-slate-900 dark:text-slate-100 bg-slate-100 dark:bg-slate-800 shadow-lg"
+                  : "text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-slate-100 hover:bg-slate-50 dark:hover:bg-slate-800/50"
               )}
             >
-              <Icon className="h-5 w-5 mb-1" />
+              <Icon className="h-5 w-5 mb-1.5" />
               <span className="text-[10px] leading-tight text-center">{item.label}</span>
             </Link>
           );

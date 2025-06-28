@@ -48,35 +48,29 @@ export default function CalendarPage() {
   const getDaysInMonth = () => {
     const startOfMonth = currentDate.startOf('month');
     const endOfMonth = currentDate.endOf('month');
-    const startCalendar = startOfMonth.startOf('week');
-    const endCalendar = endOfMonth.endOf('week');
+    const startOfCalendar = startOfMonth.startOf('week');
+    const endOfCalendar = endOfMonth.endOf('week');
 
     const days = [];
-    let day = startCalendar;
+    let current = startOfCalendar;
 
-    while (day.isBefore(endCalendar) || day.isSame(endCalendar, 'day')) {
-      days.push(day);
-      day = day.add(1, 'day');
+    while (current.isBefore(endOfCalendar) || current.isSame(endOfCalendar, 'day')) {
+      days.push(current);
+      current = current.add(1, 'day');
     }
 
     return days;
   };
 
-  const getTransactionsForDate = (date: dayjs.Dayjs) => {
-    const dateString = date.format('YYYY-MM-DD');
-    return transactions.filter(t => t.date === dateString);
-  };
-
   const getDateSummary = (date: dayjs.Dayjs) => {
-    const dayTransactions = getTransactionsForDate(date);
-    const income = dayTransactions
-      .filter(t => t.type === 'pemasukan')
-      .reduce((sum, t) => sum + t.amount, 0);
-    const expense = dayTransactions
-      .filter(t => t.type === 'pengeluaran')
-      .reduce((sum, t) => sum + t.amount, 0);
+    const dateStr = date.format('YYYY-MM-DD');
+    const dayTransactions = transactions.filter(t => t.date === dateStr);
     
-    return { income, expense, total: dayTransactions.length };
+    return {
+      total: dayTransactions.length,
+      income: dayTransactions.filter(t => t.type === 'pemasukan').length,
+      expense: dayTransactions.filter(t => t.type === 'pengeluaran').length,
+    };
   };
 
   const days = getDaysInMonth();
@@ -85,206 +79,229 @@ export default function CalendarPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Kalender</h1>
-            <p className="text-muted-foreground">
-              Lihat transaksi berdasarkan tanggal
+      <div className="p-6 bg-gradient-to-br from-slate-50/50 to-gray-50/30 dark:from-slate-900/40 dark:to-slate-800/30 min-h-screen">
+        <div className="space-y-8">
+          <div className="space-y-3">
+            <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Kalender</h1>
+            <p className="text-slate-600 dark:text-slate-400 text-lg">
+              Lihat dan kelola transaksi berdasarkan tanggal
             </p>
           </div>
-        </div>
 
-        <div className="grid gap-6 md:grid-cols-3">
-          {/* Calendar */}
-          <div className="md:col-span-2">
-            <Card>
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2">
-                    <Calendar className="h-5 w-5" />
-                    {currentDate.format('MMMM YYYY')}
-                  </CardTitle>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentDate(currentDate.subtract(1, 'month'))}
-                    >
-                      <ChevronLeft className="h-4 w-4" />
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentDate(getCurrentJakartaTime())}
-                    >
-                      Hari ini
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setCurrentDate(currentDate.add(1, 'month'))}
-                    >
-                      <ChevronRight className="h-4 w-4" />
-                    </Button>
-                  </div>
-                </div>
-              </CardHeader>
-              <CardContent>
-                {/* Days of week header */}
-                <div className="grid grid-cols-7 gap-1 mb-2">
-                  {['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'].map((day) => (
-                    <div key={day} className="p-2 text-center text-sm font-medium text-muted-foreground">
-                      {day}
-                    </div>
-                  ))}
-                </div>
-
-                {/* Calendar grid */}
-                <div className="grid grid-cols-7 gap-1">
-                  {days.map((day) => {
-                    const isCurrentMonth = day.month() === currentDate.month();
-                    const isToday = day.isSame(getCurrentJakartaTime(), 'day');
-                    const isSelected = selectedDate === day.format('YYYY-MM-DD');
-                    const summary = getDateSummary(day);
-
-                    return (
+          <div className="grid gap-8 md:grid-cols-3">
+            {/* Calendar */}
+            <div className="md:col-span-2">
+              <Card className="border-0 shadow-lg bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm">
+                <CardHeader>
+                  <div className="flex items-center justify-between">
+                    <CardTitle className="flex items-center gap-3 text-xl font-semibold text-slate-900 dark:text-slate-100">
+                      <Calendar className="h-6 w-6" />
+                      {currentDate.format('MMMM YYYY')}
+                    </CardTitle>
+                    <div className="flex items-center gap-2">
                       <Button
-                        key={day.format('YYYY-MM-DD')}
-                        variant="ghost"
-                        className={`
-                          h-auto p-2 flex flex-col items-center justify-start text-left relative
-                          ${!isCurrentMonth ? 'text-muted-foreground opacity-50' : ''}
-                          ${isToday ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300' : ''}
-                          ${isSelected ? 'bg-accent' : ''}
-                          ${summary.total > 0 ? 'border border-emerald-200 dark:border-emerald-800' : ''}
-                        `}
-                        onClick={() => setSelectedDate(
-                          selectedDate === day.format('YYYY-MM-DD') ? null : day.format('YYYY-MM-DD')
-                        )}
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentDate(currentDate.subtract(1, 'month'))}
+                        className="border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
                       >
-                        <span className="text-sm font-medium">{day.date()}</span>
-                        {summary.total > 0 && (
-                          <div className="flex gap-1 mt-1">
-                            {summary.income > 0 && (
-                              <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                            )}
-                            {summary.expense > 0 && (
-                              <div className="w-2 h-2 bg-red-500 rounded-full"></div>
-                            )}
-                          </div>
-                        )}
+                        <ChevronLeft className="h-4 w-4" />
                       </Button>
-                    );
-                  })}
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Selected Date Details */}
-          <div>
-            <Card>
-              <CardHeader>
-                <CardTitle>
-                  {selectedDate 
-                    ? dayjs(selectedDate).format('DD MMMM YYYY')
-                    : 'Pilih Tanggal'
-                  }
-                </CardTitle>
-              </CardHeader>
-              <CardContent>
-                {selectedDate ? (
-                  selectedDateTransactions.length === 0 ? (
-                    <p className="text-muted-foreground text-center py-4">
-                      Tidak ada transaksi
-                    </p>
-                  ) : (
-                    <div className="space-y-4">
-                      {/* Summary */}
-                      <div className="space-y-2">
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-emerald-600">Pemasukan</span>
-                          <span className="font-medium text-emerald-600">
-                            {formatCurrency(
-                              selectedDateTransactions
-                                .filter(t => t.type === 'pemasukan')
-                                .reduce((sum, t) => sum + t.amount, 0)
-                            )}
-                          </span>
-                        </div>
-                        <div className="flex justify-between items-center text-sm">
-                          <span className="text-red-600">Pengeluaran</span>
-                          <span className="font-medium text-red-600">
-                            {formatCurrency(
-                              selectedDateTransactions
-                                .filter(t => t.type === 'pengeluaran')
-                                .reduce((sum, t) => sum + t.amount, 0)
-                            )}
-                          </span>
-                        </div>
-                      </div>
-
-                      <div className="border-t pt-4">
-                        <div className="space-y-3">
-                          {selectedDateTransactions.map((transaction) => (
-                            <div key={transaction.id} className="flex items-center gap-3">
-                              <div className={`h-8 w-8 rounded-full flex items-center justify-center ${
-                                transaction.type === 'pemasukan' 
-                                  ? 'bg-emerald-100 text-emerald-600' 
-                                  : 'bg-red-100 text-red-600'
-                              }`}>
-                                {transaction.type === 'pemasukan' ? (
-                                  <TrendingUp className="h-4 w-4" />
-                                ) : (
-                                  <TrendingDown className="h-4 w-4" />
-                                )}
-                              </div>
-                              <div className="flex-1 min-w-0">
-                                <p className="text-sm font-medium truncate">
-                                  {transaction.category}
-                                </p>
-                                <p className={`text-xs ${
-                                  transaction.type === 'pemasukan' ? 'text-emerald-600' : 'text-red-600'
-                                }`}>
-                                  {transaction.type === 'pemasukan' ? '+' : '-'}
-                                  {formatCurrency(transaction.amount)}
-                                </p>
-                              </div>
-                            </div>
-                          ))}
-                        </div>
-                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentDate(getCurrentJakartaTime())}
+                        className="border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
+                      >
+                        Hari ini
+                      </Button>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => setCurrentDate(currentDate.add(1, 'month'))}
+                        className="border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
+                      >
+                        <ChevronRight className="h-4 w-4" />
+                      </Button>
                     </div>
-                  )
-                ) : (
-                  <p className="text-muted-foreground text-center py-4">
-                    Klik tanggal untuk melihat detail transaksi
-                  </p>
-                )}
-              </CardContent>
-            </Card>
+                  </div>
+                </CardHeader>
+                <CardContent className="p-6">
+                  {/* Days of week header */}
+                  <div className="grid grid-cols-7 gap-1 mb-4">
+                    {['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'].map((day) => (
+                      <div key={day} className="p-3 text-center text-sm font-semibold text-slate-600 dark:text-slate-400">
+                        {day}
+                      </div>
+                    ))}
+                  </div>
 
-            {/* Legend */}
-            <Card className="mt-4">
-              <CardHeader>
-                <CardTitle className="text-sm">Keterangan</CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-2">
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-3 h-3 bg-emerald-500 rounded-full"></div>
-                  <span>Pemasukan</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-3 h-3 bg-red-500 rounded-full"></div>
-                  <span>Pengeluaran</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm">
-                  <div className="w-3 h-3 bg-emerald-50 border border-emerald-200 rounded-full"></div>
-                  <span>Hari ini</span>
-                </div>
-              </CardContent>
-            </Card>
+                  {/* Calendar grid */}
+                  <div className="grid grid-cols-7 gap-1">
+                    {days.map((day) => {
+                      const isCurrentMonth = day.month() === currentDate.month();
+                      const isToday = day.isSame(getCurrentJakartaTime(), 'day');
+                      const isSelected = selectedDate === day.format('YYYY-MM-DD');
+                      const summary = getDateSummary(day);
+
+                      return (
+                        <Button
+                          key={day.format('YYYY-MM-DD')}
+                          variant="ghost"
+                          className={`h-auto p-3 flex flex-col items-center justify-start text-left relative rounded-xl transition-all ${
+                            !isCurrentMonth ? 'text-slate-400 dark:text-slate-600 opacity-60' : 'text-slate-700 dark:text-slate-300'
+                          } ${
+                            isToday ? 'bg-slate-100 dark:bg-slate-800 text-slate-900 dark:text-slate-100 ring-2 ring-slate-300 dark:ring-slate-600' : ''
+                          } ${
+                            isSelected ? 'bg-slate-200 dark:bg-slate-700' : ''
+                          } ${
+                            summary.total > 0 ? 'border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50' : 'hover:bg-slate-50 dark:hover:bg-slate-800/30'
+                          }`}
+                          onClick={() => setSelectedDate(
+                            selectedDate === day.format('YYYY-MM-DD') ? null : day.format('YYYY-MM-DD')
+                          )}
+                        >
+                          <span className="text-sm font-semibold">{day.date()}</span>
+                          {summary.total > 0 && (
+                            <div className="flex gap-1.5 mt-2">
+                              {summary.income > 0 && (
+                                <div className="w-2.5 h-2.5 bg-emerald-500 rounded-full shadow-sm"></div>
+                              )}
+                              {summary.expense > 0 && (
+                                <div className="w-2.5 h-2.5 bg-red-500 rounded-full shadow-sm"></div>
+                              )}
+                            </div>
+                          )}
+                        </Button>
+                      );
+                    })}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
+
+            {/* Selected Date Details */}
+            <div>
+              <Card className="border-0 shadow-lg bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="text-xl font-semibold text-slate-900 dark:text-slate-100">
+                    {selectedDate 
+                      ? dayjs(selectedDate).format('DD MMMM YYYY')
+                      : 'Pilih Tanggal'
+                    }
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {selectedDate ? (
+                    selectedDateTransactions.length === 0 ? (
+                      <div className="text-center py-12">
+                        <Calendar className="h-12 w-12 text-slate-400 dark:text-slate-600 mx-auto mb-4" />
+                        <p className="text-slate-600 dark:text-slate-400">
+                          Tidak ada transaksi pada tanggal ini
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-6">
+                        {/* Summary */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="p-4 bg-emerald-50 dark:bg-emerald-950/20 rounded-xl border border-emerald-200 dark:border-emerald-700/50">
+                            <div className="flex items-center gap-2 mb-2">
+                              <TrendingUp className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                              <span className="text-sm text-emerald-700 dark:text-emerald-300 font-medium">Pemasukan</span>
+                            </div>
+                            <span className="text-lg font-bold text-emerald-700 dark:text-emerald-300">
+                              {formatCurrency(
+                                selectedDateTransactions
+                                  .filter(t => t.type === 'pemasukan')
+                                  .reduce((sum, t) => sum + t.amount, 0)
+                              )}
+                            </span>
+                          </div>
+                          <div className="p-4 bg-red-50 dark:bg-red-950/20 rounded-xl border border-red-200 dark:border-red-700/50">
+                            <div className="flex items-center gap-2 mb-2">
+                              <TrendingDown className="h-4 w-4 text-red-600 dark:text-red-400" />
+                              <span className="text-sm text-red-700 dark:text-red-300 font-medium">Pengeluaran</span>
+                            </div>
+                            <span className="text-lg font-bold text-red-700 dark:text-red-300">
+                              {formatCurrency(
+                                selectedDateTransactions
+                                  .filter(t => t.type === 'pengeluaran')
+                                  .reduce((sum, t) => sum + t.amount, 0)
+                              )}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="border-t border-slate-200 dark:border-slate-700 pt-6">
+                          <h4 className="text-sm font-semibold text-slate-900 dark:text-slate-100 mb-4">Detail Transaksi</h4>
+                          <div className="space-y-3">
+                            {selectedDateTransactions.map((transaction) => (
+                              <div key={transaction.id} className="flex items-center gap-3 p-3 bg-slate-50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700/50">
+                                <div className={`h-10 w-10 rounded-xl flex items-center justify-center shadow-sm ${
+                                  transaction.type === 'pemasukan' 
+                                    ? 'bg-emerald-100 dark:bg-emerald-950/50 text-emerald-600 dark:text-emerald-400' 
+                                    : 'bg-red-100 dark:bg-red-950/50 text-red-600 dark:text-red-400'
+                                }`}>
+                                  {transaction.type === 'pemasukan' ? (
+                                    <TrendingUp className="h-5 w-5" />
+                                  ) : (
+                                    <TrendingDown className="h-5 w-5" />
+                                  )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-sm font-semibold text-slate-900 dark:text-slate-100 truncate">
+                                    {transaction.category}
+                                  </p>
+                                  <p className={`text-sm font-medium ${
+                                    transaction.type === 'pemasukan' ? 'text-emerald-600 dark:text-emerald-400' : 'text-red-600 dark:text-red-400'
+                                  }`}>
+                                    {transaction.type === 'pemasukan' ? '+' : '-'}
+                                    {formatCurrency(transaction.amount)}
+                                  </p>
+                                  {transaction.note && (
+                                    <p className="text-xs text-slate-500 dark:text-slate-400 truncate">
+                                      {transaction.note}
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  ) : (
+                    <div className="text-center py-12">
+                      <Calendar className="h-12 w-12 text-slate-400 dark:text-slate-600 mx-auto mb-4" />
+                      <p className="text-slate-600 dark:text-slate-400">
+                        Pilih tanggal untuk melihat detail transaksi
+                      </p>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Legend */}
+              <Card className="mt-6 border-0 shadow-lg bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm">
+                <CardHeader>
+                  <CardTitle className="text-lg font-semibold text-slate-900 dark:text-slate-100">Keterangan</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex items-center gap-3 text-sm">
+                    <div className="w-4 h-4 bg-emerald-500 rounded-full shadow-sm"></div>
+                    <span className="text-slate-700 dark:text-slate-300 font-medium">Pemasukan</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <div className="w-4 h-4 bg-red-500 rounded-full shadow-sm"></div>
+                    <span className="text-slate-700 dark:text-slate-300 font-medium">Pengeluaran</span>
+                  </div>
+                  <div className="flex items-center gap-3 text-sm">
+                    <div className="w-4 h-4 bg-slate-100 dark:bg-slate-700 border-2 border-slate-300 dark:border-slate-600 rounded-full"></div>
+                    <span className="text-slate-700 dark:text-slate-300 font-medium">Hari ini</span>
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
       </div>

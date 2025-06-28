@@ -27,7 +27,8 @@ import {
   X,
   Edit,
   Trash2,
-  MoreVertical
+  MoreVertical,
+  Download
 } from 'lucide-react';
 import { WalletWithBalance } from '@/lib/types';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -67,6 +68,9 @@ export default function TransactionsPage() {
   const [showBalances, setShowBalances] = useState(true);
   const [editingTransaction, setEditingTransaction] = useState<Transaction | null>(null);
   const [deletingTransaction, setDeletingTransaction] = useState<Transaction | null>(null);
+  const [filterCategory, setFilterCategory] = useState<string>('all');
+  const [filterMinAmount, setFilterMinAmount] = useState<string>('');
+  const [filterMaxAmount, setFilterMaxAmount] = useState<string>('');
   const [showDeleteDialog, setShowDeleteDialog] = useState(false);
 
   const fetchData = useCallback(async () => {
@@ -172,11 +176,18 @@ export default function TransactionsPage() {
   const filteredTransactions = transactions.filter(transaction => {
     const matchesWallet = filterWallet === 'all' || transaction.wallet_id === filterWallet;
     const matchesType = filterType === 'all' || transaction.type === filterType;
+    const matchesCategory = filterCategory === 'all' || transaction.category === filterCategory;
     const matchesSearch = searchQuery === '' || 
       transaction.category.toLowerCase().includes(searchQuery.toLowerCase()) ||
       (transaction.note && transaction.note.toLowerCase().includes(searchQuery.toLowerCase()));
     
-    return matchesWallet && matchesType && matchesSearch;
+    // Amount filtering
+    const transactionAmount = transaction.amount / 100; // Convert from cents
+    const minAmount = filterMinAmount ? parseFloat(filterMinAmount) : 0;
+    const maxAmount = filterMaxAmount ? parseFloat(filterMaxAmount) : Infinity;
+    const matchesAmount = transactionAmount >= minAmount && transactionAmount <= maxAmount;
+    
+    return matchesWallet && matchesType && matchesCategory && matchesSearch && matchesAmount;
   });
 
   const getWalletById = (walletId: string | null) => {
@@ -186,10 +197,13 @@ export default function TransactionsPage() {
   const clearFilters = () => {
     setFilterWallet('all');
     setFilterType('all');
+    setFilterCategory('all');
     setSearchQuery('');
+    setFilterMinAmount('');
+    setFilterMaxAmount('');
   };
 
-  const hasActiveFilters = filterWallet !== 'all' || filterType !== 'all' || searchQuery !== '';
+  const hasActiveFilters = filterWallet !== 'all' || filterType !== 'all' || filterCategory !== 'all' || searchQuery !== '' || filterMinAmount !== '' || filterMaxAmount !== '';
 
   // Calculate summary stats
   const totalIncome = filteredTransactions
@@ -214,90 +228,93 @@ export default function TransactionsPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-4 md:p-6 space-y-6">
+      <div className="p-6 space-y-8 bg-gradient-to-br from-slate-50/30 to-slate-100/20 dark:from-slate-900/40 dark:to-slate-800/30 min-h-screen">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-2xl md:text-3xl font-bold tracking-tight">Transaksi</h1>
-            <p className="text-muted-foreground">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Transaksi</h1>
+            <p className="text-slate-600 dark:text-slate-400 text-lg">
               Kelola pemasukan dan pengeluaran Anda
             </p>
           </div>
-          <Button onClick={() => setIsModalOpen(true)} className="gap-2">
+          <Button 
+            onClick={() => setIsModalOpen(true)} 
+            className="gap-2 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 text-white dark:text-slate-900"
+          >
             <Plus className="h-4 w-4" />
             Tambah Transaksi
           </Button>
         </div>
 
         {/* Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardContent className="p-4">
+        <div className="grid gap-6 md:grid-cols-3">
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/50 dark:to-emerald-900/30">
+            <CardContent className="p-6">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <TrendingUp className="h-4 w-4 text-emerald-600" />
-                  <span className="text-sm font-medium">Pemasukan</span>
+                <div className="flex items-center gap-3">
+                  <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
+                  <span className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Pemasukan</span>
                 </div>
                 <Button
                   variant="ghost"
                   size="sm"
                   onClick={() => setShowBalances(!showBalances)}
-                  className="h-6 w-6 p-0"
+                  className="h-7 w-7 p-0 text-emerald-600 hover:text-emerald-700 dark:text-emerald-400 dark:hover:text-emerald-300"
                 >
                   {showBalances ? <EyeOff className="h-3 w-3" /> : <Eye className="h-3 w-3" />}
                 </Button>
               </div>
-              <p className="text-lg font-bold text-emerald-600 mt-1">
+              <p className="text-xl font-bold text-emerald-800 dark:text-emerald-200 mt-2">
                 {showBalances ? formatCurrency(totalIncome / 100) : '••••••'}
               </p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <TrendingDown className="h-4 w-4 text-red-600" />
-                <span className="text-sm font-medium">Pengeluaran</span>
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/50 dark:to-red-900/30">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400" />
+                <span className="text-sm font-medium text-red-700 dark:text-red-300">Pengeluaran</span>
               </div>
-              <p className="text-lg font-bold text-red-600 mt-1">
+              <p className="text-xl font-bold text-red-800 dark:text-red-200 mt-2">
                 {showBalances ? formatCurrency(totalExpense / 100) : '••••••'}
               </p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardContent className="p-4">
-              <div className="flex items-center gap-2">
-                <Wallet className="h-4 w-4 text-blue-600" />
-                <span className="text-sm font-medium">Selisih</span>
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30">
+            <CardContent className="p-6">
+              <div className="flex items-center gap-3">
+                <Wallet className="h-5 w-5 text-blue-600 dark:text-blue-400" />
+                <span className="text-sm font-medium text-blue-700 dark:text-blue-300">Selisih</span>
               </div>
-              <p className={`text-lg font-bold mt-1 ${netAmount >= 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+              <p className={`text-xl font-bold mt-2 ${netAmount >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'}`}>
                 {showBalances ? formatCurrency(netAmount / 100) : '••••••'}
               </p>
             </CardContent>
           </Card>
         </div>
 
-        {/* Filters */}
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex flex-col lg:flex-row gap-4">
-              <div className="flex-1">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
-                  <Input
-                    placeholder="Cari transaksi..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    className="pl-10"
-                  />
-                </div>
+        {/* Enhanced Filters */}
+        <Card className="border-0 shadow-lg bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm">
+          <CardContent className="p-6">
+            <div className="space-y-4">
+              {/* Search Bar */}
+              <div className="relative">
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 dark:text-slate-500 h-4 w-4" />
+                <Input
+                  placeholder="Cari transaksi berdasarkan kategori atau deskripsi..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-800"
+                />
               </div>
               
-              <div className="flex flex-col sm:flex-row gap-3">
+              {/* Filter Controls */}
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
                 <Select value={filterWallet} onValueChange={setFilterWallet}>
-                  <SelectTrigger className="w-full sm:w-48">
-                    <SelectValue placeholder="Filter Sumber Saldo" />
+                  <SelectTrigger className="border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
+                    <SelectValue placeholder="Semua Sumber Saldo" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua Sumber Saldo</SelectItem>
@@ -313,8 +330,8 @@ export default function TransactionsPage() {
                 </Select>
 
                 <Select value={filterType} onValueChange={setFilterType}>
-                  <SelectTrigger className="w-full sm:w-40">
-                    <SelectValue placeholder="Filter Jenis" />
+                  <SelectTrigger className="border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
+                    <SelectValue placeholder="Semua Jenis" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="all">Semua Jenis</SelectItem>
@@ -323,37 +340,163 @@ export default function TransactionsPage() {
                   </SelectContent>
                 </Select>
 
-                {hasActiveFilters && (
+                <Select value={filterCategory} onValueChange={setFilterCategory}>
+                  <SelectTrigger className="border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50">
+                    <SelectValue placeholder="Semua Kategori" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">Semua Kategori</SelectItem>
+                    {Array.from(new Set(transactions.map(t => t.category))).map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+
+                <div className="flex gap-2">
+                  <Input
+                    placeholder="Min Amount"
+                    type="number"
+                    value={filterMinAmount}
+                    onChange={(e) => setFilterMinAmount(e.target.value)}
+                    className="border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50"
+                  />
+                  <Input
+                    placeholder="Max Amount"
+                    type="number"
+                    value={filterMaxAmount}
+                    onChange={(e) => setFilterMaxAmount(e.target.value)}
+                    className="border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50"
+                  />
+                </div>
+              </div>
+
+              {/* Clear Filters */}
+              {(filterWallet !== 'all' || filterType !== 'all' || filterCategory !== 'all' || searchQuery || filterMinAmount || filterMaxAmount) && (
+                <div className="flex justify-end">
                   <Button 
                     variant="outline" 
                     size="sm" 
-                    onClick={clearFilters}
-                    className="gap-2"
+                    onClick={() => {
+                      setFilterWallet('all');
+                      setFilterType('all');
+                      setFilterCategory('all');
+                      setSearchQuery('');
+                      setFilterMinAmount('');
+                      setFilterMaxAmount('');
+                    }}
+                    className="gap-2 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
                   >
                     <X className="h-4 w-4" />
-                    Reset
+                    Reset Semua Filter
                   </Button>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* Export Filtered Results */}
+              {(filterWallet !== 'all' || filterType !== 'all' || filterCategory !== 'all' || searchQuery || filterMinAmount || filterMaxAmount) && (
+                <div className="flex justify-start">
+                  <Button 
+                    variant="outline" 
+                    size="sm" 
+                    onClick={() => {
+                      // Export filtered results to CSV with better formatting
+                      const filteredData = filteredTransactions;
+                      const csvHeaders = ['Tanggal', 'Jenis', 'Jumlah', 'Kategori', 'Sumber Saldo', 'Deskripsi'];
+                      
+                      const csvData = filteredData.map(transaction => {
+                        const wallet = wallets.find(w => w.id === transaction.wallet_id);
+                        
+                        // Format tanggal yang konsisten
+                        const date = new Date(transaction.date);
+                        const formattedDate = date.toLocaleDateString('id-ID', {
+                          day: '2-digit',
+                          month: '2-digit', 
+                          year: 'numeric'
+                        });
+
+                        // Format currency tanpa prefix Rp
+                        const amount = Math.abs(transaction.amount || 0);
+                        const formattedAmount = (amount / 100).toLocaleString('id-ID', {
+                          minimumFractionDigits: 0,
+                          maximumFractionDigits: 0
+                        });
+
+                        // Clean data untuk menghindari masalah CSV
+                        const cleanText = (text: string | null | undefined) => {
+                          if (!text) return '';
+                          return text.replace(/"/g, '""').replace(/\n/g, ' ').replace(/\r/g, '');
+                        };
+
+                        return [
+                          formattedDate,
+                          transaction.type === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran',
+                          formattedAmount,
+                          cleanText(transaction.category) || 'Tidak Dikategorikan',
+                          cleanText(wallet?.name) || 'Unknown',
+                          cleanText(transaction.note) || ''
+                        ];
+                      });
+                      
+                      // Format CSV dengan proper escaping
+                      const csvContent = [csvHeaders, ...csvData]
+                        .map(row => row.map(field => {
+                          const fieldStr = String(field || '');
+                          if (fieldStr.includes(',') || fieldStr.includes('"') || fieldStr.includes('\n')) {
+                            return `"${fieldStr.replace(/"/g, '""')}"`;
+                          }
+                          return fieldStr;
+                        }).join(','))
+                        .join('\n');
+
+                      // Generate filename dengan format yang lebih baik
+                      const dateStr = new Date().toLocaleDateString('id-ID', {
+                        day: '2-digit',
+                        month: '2-digit',
+                        year: 'numeric'
+                      }).replace(/\//g, '-');
+
+                      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8;' });
+                      const link = document.createElement('a');
+                      const url = URL.createObjectURL(blob);
+                      
+                      link.setAttribute('href', url);
+                      link.setAttribute('download', `transaksi-filtered-${dateStr}.csv`);
+                      link.style.visibility = 'hidden';
+                      
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                      
+                      toast.success('Data terfilter berhasil diekspor!');
+                    }}
+                    className="gap-2 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  >
+                    <Download className="h-4 w-4" />
+                    Ekspor Hasil Filter ({filteredTransactions.length} data)
+                  </Button>
+                </div>
+              )}
             </div>
           </CardContent>
         </Card>
 
         {/* Transactions List */}
-        <Card>
+        <Card className="border-0 shadow-lg bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm">
           <CardHeader>
             <div className="flex items-center justify-between">
-              <CardTitle>
+              <CardTitle className="text-xl font-semibold text-slate-900 dark:text-slate-100">
                 Daftar Transaksi
                 {hasActiveFilters && (
-                  <span className="text-sm font-normal text-muted-foreground ml-2">
+                  <span className="text-sm font-normal text-slate-500 dark:text-slate-400 ml-2">
                     ({filteredTransactions.length} dari {transactions.length})
                   </span>
                 )}
               </CardTitle>
               <div className="flex items-center gap-2">
                 {hasActiveFilters && (
-                  <Badge variant="secondary" className="gap-1">
+                  <Badge variant="secondary" className="gap-1 bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                     <Filter className="h-3 w-3" />
                     Filter Aktif
                   </Badge>
@@ -363,30 +506,34 @@ export default function TransactionsPage() {
           </CardHeader>
           <CardContent>
             {loading ? (
-              <div className="flex items-center justify-center py-8">
-                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary"></div>
+              <div className="flex items-center justify-center py-12">
+                <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-slate-900 dark:border-slate-100"></div>
               </div>
             ) : filteredTransactions.length > 0 ? (
-              <div className="space-y-3">
+              <div className="space-y-4">
                 {filteredTransactions.map((transaction) => {
                   const wallet = getWalletById(transaction.wallet_id);
                   return (
-                    <div key={transaction.id} className="flex items-center justify-between p-4 border rounded-lg hover:bg-muted/50 transition-colors">
-                      <div className="flex items-center space-x-4 flex-1">
-                        <div className={`w-2 h-12 rounded-full ${
+                    <div key={transaction.id} className="flex items-center justify-between p-5 border border-slate-200/50 dark:border-slate-700/50 rounded-xl bg-slate-50/50 dark:bg-slate-800/30 hover:bg-slate-100/70 dark:hover:bg-slate-700/50 transition-all duration-200">
+                      <div className="flex items-center space-x-5 flex-1">
+                        <div className={`w-3 h-3 rounded-full ${
                           transaction.type === 'pemasukan' ? 'bg-emerald-500' : 'bg-red-500'
                         }`} />
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-center gap-2 mb-1 flex-wrap">
-                            <p className="font-medium truncate">{transaction.category}</p>
+                          <div className="flex items-center gap-3 mb-2 flex-wrap">
+                            <p className="font-medium truncate text-slate-900 dark:text-slate-100">{transaction.category}</p>
                             <Badge 
                               variant={transaction.type === 'pemasukan' ? 'default' : 'destructive'}
-                              className="text-xs flex-shrink-0"
+                              className={`text-xs flex-shrink-0 ${
+                                transaction.type === 'pemasukan' 
+                                  ? 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/50 dark:text-emerald-300' 
+                                  : 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300'
+                              }`}
                             >
                               {transaction.type}
                             </Badge>
                           </div>
-                          <div className="flex items-center gap-2 text-sm text-muted-foreground flex-wrap">
+                          <div className="flex items-center gap-3 text-sm text-slate-500 dark:text-slate-400 flex-wrap">
                             <div className="flex items-center gap-1">
                               <Calendar className="h-3 w-3 flex-shrink-0" />
                               <span>{new Date(transaction.date).toLocaleDateString('id-ID')}</span>
@@ -405,16 +552,16 @@ export default function TransactionsPage() {
                             )}
                           </div>
                           {transaction.note && (
-                            <p className="text-sm text-muted-foreground mt-1 truncate">{transaction.note}</p>
+                            <p className="text-sm text-slate-500 dark:text-slate-400 mt-2 truncate">{transaction.note}</p>
                           )}
                         </div>
                       </div>
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-3">
                         <div className="text-right">
                           <p className={`text-lg font-semibold ${
                             transaction.type === 'pemasukan' 
-                              ? 'text-emerald-600' 
-                              : 'text-red-600'
+                              ? 'text-emerald-600 dark:text-emerald-400' 
+                              : 'text-red-600 dark:text-red-400'
                           }`}>
                             {transaction.type === 'pemasukan' ? '+' : '-'}
                             {showBalances 
@@ -422,7 +569,7 @@ export default function TransactionsPage() {
                               : '••••••'
                             }
                           </p>
-                          <p className="text-xs text-muted-foreground">
+                          <p className="text-xs text-slate-400 dark:text-slate-500">
                             {new Date(transaction.created_at).toLocaleString('id-ID', {
                               hour: '2-digit',
                               minute: '2-digit'
@@ -431,7 +578,7 @@ export default function TransactionsPage() {
                         </div>
                         <DropdownMenu>
                           <DropdownMenuTrigger asChild>
-                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0">
+                            <Button variant="ghost" size="sm" className="h-8 w-8 p-0 hover:bg-slate-200 dark:hover:bg-slate-700">
                               <MoreVertical className="h-4 w-4" />
                             </Button>
                           </DropdownMenuTrigger>
@@ -455,20 +602,27 @@ export default function TransactionsPage() {
                 })}
               </div>
             ) : (
-              <div className="flex flex-col items-center justify-center py-12">
-                <Calendar className="h-12 w-12 text-muted-foreground mb-4" />
-                <p className="text-muted-foreground mb-2 text-center">
+              <div className="flex flex-col items-center justify-center py-16">
+                <Calendar className="h-20 w-20 text-slate-400 dark:text-slate-600 mb-8" />
+                <p className="text-slate-600 dark:text-slate-400 mb-3 text-center text-lg">
                   {hasActiveFilters 
                     ? 'Tidak ada transaksi yang sesuai dengan filter'
                     : 'Belum ada transaksi'
                   }
                 </p>
                 {hasActiveFilters ? (
-                  <Button variant="outline" onClick={clearFilters}>
+                  <Button 
+                    variant="outline" 
+                    onClick={clearFilters}
+                    className="border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
+                  >
                     Reset Filter
                   </Button>
                 ) : (
-                  <Button onClick={() => setIsModalOpen(true)} className="gap-2">
+                  <Button 
+                    onClick={() => setIsModalOpen(true)} 
+                    className="gap-2 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 text-white dark:text-slate-900"
+                  >
                     <Plus className="h-4 w-4" />
                     Tambah Transaksi Pertama
                   </Button>

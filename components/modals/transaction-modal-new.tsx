@@ -50,7 +50,7 @@ type TransactionFormData = z.infer<typeof transactionSchema>;
 interface TransactionModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (data: TransactionFormData & { id?: string }) => Promise<void>;
+  onSubmit: (data: any) => Promise<void>;
   wallets: WalletWithBalance[];
   categories: Category[];
   editingTransaction?: Transaction | null;
@@ -67,20 +67,20 @@ export function TransactionModal({
   const [loading, setLoading] = useState(false);
   const [amountDisplay, setAmountDisplay] = useState('');
 
-  const { register, handleSubmit, reset, setValue, watch, formState: { errors } } = useForm<TransactionFormData>({
+  const { register, handleSubmit, setValue, watch, reset, formState: { errors } } = useForm<TransactionFormData>({
     resolver: zodResolver(transactionSchema),
     defaultValues: {
       type: 'pengeluaran',
       date: new Date(),
-    },
+    }
   });
+
   useEffect(() => {
     if (editingTransaction) {
       setValue('type', editingTransaction.type);
       setValue('category', editingTransaction.category);
       setValue('source', editingTransaction.wallet_id || '');
       
-      // Parse date correctly to avoid timezone issues
       const transactionDate = new Date(editingTransaction.date + 'T00:00:00');
       setValue('date', transactionDate);
       setValue('description', editingTransaction.note || '');
@@ -124,14 +124,15 @@ export function TransactionModal({
   };
 
   const availableCategories = categories.filter(cat => cat.type === watch('type'));
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-[450px] max-h-[90vh] overflow-y-auto">
-        <DialogHeader className="pb-3">
-          <DialogTitle className="text-lg">
+      <DialogContent className="sm:max-w-lg max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
+        <DialogHeader className="pb-4">
+          <DialogTitle className="text-xl font-semibold text-slate-900 dark:text-slate-100">
             {editingTransaction ? 'Edit Transaksi' : 'Tambah Transaksi'}
           </DialogTitle>
-          <DialogDescription className="text-sm">
+          <DialogDescription className="text-slate-600 dark:text-slate-400">
             {editingTransaction 
               ? 'Perbarui informasi transaksi Anda'
               : 'Tambahkan transaksi pemasukan atau pengeluaran baru'
@@ -139,61 +140,86 @@ export function TransactionModal({
           </DialogDescription>
         </DialogHeader>
         
-        <form onSubmit={handleSubmit(onSubmitHandler)} className="space-y-4">          <div className="space-y-1.5">
-            <Label htmlFor="type" className="text-sm">Jenis Transaksi</Label>
-            <Select 
-              value={watch('type')} 
-              onValueChange={(value: 'pemasukan' | 'pengeluaran') => setValue('type', value)}
-            >
-              <SelectTrigger className={`h-9 ${errors.type ? 'border-red-500' : ''}`}>
-                <SelectValue placeholder="Pilih jenis transaksi" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="pemasukan">💰 Pemasukan</SelectItem>
-                <SelectItem value="pengeluaran">💸 Pengeluaran</SelectItem>
-              </SelectContent>
-            </Select>
+        <form onSubmit={handleSubmit(onSubmitHandler)} className="space-y-6">
+          {/* Transaction Type */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Jenis Transaksi</Label>
+            <div className="grid grid-cols-2 gap-3">
+              <Button
+                type="button"
+                variant={watch('type') === 'pemasukan' ? 'default' : 'outline'}
+                className={`h-12 justify-start gap-3 ${
+                  watch('type') === 'pemasukan' 
+                    ? 'bg-emerald-600 hover:bg-emerald-700 text-white dark:bg-emerald-600 dark:hover:bg-emerald-700'
+                    : 'border-slate-200 dark:border-slate-700 hover:bg-emerald-50 dark:hover:bg-emerald-950 text-slate-700 dark:text-slate-300'
+                }`}
+                onClick={() => setValue('type', 'pemasukan')}
+              >
+                <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
+                Pemasukan
+              </Button>
+              <Button
+                type="button"
+                variant={watch('type') === 'pengeluaran' ? 'default' : 'outline'}
+                className={`h-12 justify-start gap-3 ${
+                  watch('type') === 'pengeluaran' 
+                    ? 'bg-red-600 hover:bg-red-700 text-white dark:bg-red-600 dark:hover:bg-red-700'
+                    : 'border-slate-200 dark:border-slate-700 hover:bg-red-50 dark:hover:bg-red-950 text-slate-700 dark:text-slate-300'
+                }`}
+                onClick={() => setValue('type', 'pengeluaran')}
+              >
+                <div className="w-2 h-2 bg-red-500 rounded-full"></div>
+                Pengeluaran
+              </Button>
+            </div>
             {errors.type && (
-              <p className="text-xs text-red-600">{errors.type.message}</p>
+              <p className="text-sm text-red-500">{errors.type.message}</p>
             )}
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="amount" className="text-sm">Jumlah</Label>
-            <Input
-              id="amount"
-              type="text"
-              placeholder="0"
-              value={amountDisplay}
-              onChange={handleAmountChange}
-              className={`h-9 ${errors.amount ? 'border-red-500' : ''}`}
-            />
-            {errors.amount && (
-              <p className="text-xs text-red-600">{errors.amount.message}</p>
-            )}
-            {amountDisplay && (
-              <p className="text-xs text-muted-foreground">
-                {formatCurrency(parseNumber(amountDisplay))}
+          {/* Amount */}
+          <div className="space-y-3">
+            <Label htmlFor="amount" className="text-sm font-medium text-slate-700 dark:text-slate-300">Jumlah</Label>
+            <div className="relative">
+              <Input
+                id="amount"
+                type="text"
+                placeholder="0"
+                value={amountDisplay}
+                onChange={handleAmountChange}
+                className={`h-12 text-lg font-semibold border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-800 ${errors.amount ? 'border-red-500' : ''}`}
+              />
+              <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                <span className="text-slate-500 dark:text-slate-400 text-sm">IDR</span>
+              </div>
+            </div>
+            {watch('amount') && (
+              <p className="text-sm text-slate-600 dark:text-slate-400">
+                {formatCurrency(watch('amount') || 0)}
               </p>
             )}
+            {errors.amount && (
+              <p className="text-sm text-red-500">{errors.amount.message}</p>
+            )}
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="source" className="text-sm">Sumber Saldo</Label>
+          {/* Source */}
+          <div className="space-y-3">
+            <Label htmlFor="source" className="text-sm font-medium text-slate-700 dark:text-slate-300">Sumber Saldo</Label>
             <Select 
               value={watch('source')} 
               onValueChange={(value) => setValue('source', value)}
             >
-              <SelectTrigger className={`h-9 ${errors.source ? 'border-red-500' : ''}`}>
+              <SelectTrigger className={`h-12 border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 ${errors.source ? 'border-red-500' : ''}`}>
                 <SelectValue placeholder="Pilih sumber saldo" />
               </SelectTrigger>
               <SelectContent>
                 {wallets.map((wallet) => (
                   <SelectItem key={wallet.id} value={wallet.id}>
-                    <div className="flex items-center gap-2">
+                    <div className="flex items-center gap-3">
                       <span>{getWalletTypeIcon(wallet.type)}</span>
                       <span className="truncate">{wallet.name}</span>
-                      <span className="text-muted-foreground text-xs">
+                      <span className="text-slate-500 dark:text-slate-400 text-xs">
                         ({formatCurrency(wallet.current_balance / 100)})
                       </span>
                     </div>
@@ -202,17 +228,18 @@ export function TransactionModal({
               </SelectContent>
             </Select>
             {errors.source && (
-              <p className="text-xs text-red-600">{errors.source.message}</p>
+              <p className="text-sm text-red-500">{errors.source.message}</p>
             )}
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="category" className="text-sm">Kategori</Label>
+          {/* Category */}
+          <div className="space-y-3">
+            <Label htmlFor="category" className="text-sm font-medium text-slate-700 dark:text-slate-300">Kategori</Label>
             <Select 
               value={watch('category')} 
               onValueChange={(value) => setValue('category', value)}
             >
-              <SelectTrigger className={`h-9 ${errors.category ? 'border-red-500' : ''}`}>
+              <SelectTrigger className={`h-12 border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 ${errors.category ? 'border-red-500' : ''}`}>
                 <SelectValue placeholder="Pilih kategori" />
               </SelectTrigger>
               <SelectContent>
@@ -227,29 +254,28 @@ export function TransactionModal({
               </SelectContent>
             </Select>
             {errors.category && (
-              <p className="text-xs text-red-600">{errors.category.message}</p>
+              <p className="text-sm text-red-500">{errors.category.message}</p>
             )}
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="date" className="text-sm">Tanggal</Label>
+          {/* Date */}
+          <div className="space-y-3">
+            <Label className="text-sm font-medium text-slate-700 dark:text-slate-300">Tanggal</Label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button
                   variant="outline"
                   className={cn(
-                    "w-full justify-start text-left font-normal h-9",
-                    !watch('date') && "text-muted-foreground",
+                    "w-full h-12 justify-start text-left font-normal border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50",
+                    !watch('date') && "text-slate-500 dark:text-slate-400",
                     errors.date && "border-red-500"
                   )}
                 >
-                  <CalendarIcon className="mr-2 h-3 w-3" />
-                  <span className="text-sm">
-                    {watch('date') ? format(watch('date'), "PPP", { locale: id }) : "Pilih tanggal"}
-                  </span>
+                  <CalendarIcon className="mr-3 h-4 w-4" />
+                  {watch('date') ? format(watch('date'), "dd MMMM yyyy", { locale: id }) : "Pilih tanggal"}
                 </Button>
               </PopoverTrigger>
-              <PopoverContent className="w-auto p-0">
+              <PopoverContent className="w-auto p-0 bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700" align="start">
                 <Calendar
                   mode="single"
                   selected={watch('date')}
@@ -259,27 +285,36 @@ export function TransactionModal({
               </PopoverContent>
             </Popover>
             {errors.date && (
-              <p className="text-xs text-red-600">{errors.date.message}</p>
+              <p className="text-sm text-red-500">{errors.date.message}</p>
             )}
           </div>
 
-          <div className="space-y-1.5">
-            <Label htmlFor="description" className="text-sm">Catatan (Opsional)</Label>
+          {/* Description */}
+          <div className="space-y-3">
+            <Label htmlFor="description" className="text-sm font-medium text-slate-700 dark:text-slate-300">Catatan (Opsional)</Label>
             <Textarea
               id="description"
-              placeholder="Tambahkan catatan transaksi..."
+              placeholder="Tambahkan catatan untuk transaksi ini..."
               {...register('description')}
-              className="resize-none min-h-[60px] text-sm"
-              rows={2}
+              className="min-h-[80px] border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-800"
             />
           </div>
 
-          <DialogFooter className="pt-4 gap-2">
-            <Button type="button" variant="outline" onClick={onClose} className="h-9">
+          <DialogFooter className="gap-3">
+            <Button 
+              type="button" 
+              variant="outline" 
+              onClick={onClose}
+              className="border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
+            >
               Batal
             </Button>
-            <Button type="submit" disabled={loading} className="h-9">
-              {loading ? 'Menyimpan...' : (editingTransaction ? 'Perbarui' : 'Simpan')}
+            <Button 
+              type="submit" 
+              disabled={loading}
+              className="bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 text-white dark:text-slate-900"
+            >
+              {loading ? 'Menyimpan...' : (editingTransaction ? 'Update' : 'Simpan')}
             </Button>
           </DialogFooter>
         </form>

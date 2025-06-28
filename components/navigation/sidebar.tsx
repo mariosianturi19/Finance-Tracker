@@ -18,7 +18,10 @@ import {
   X,
   ChevronLeft,
   ChevronRight,
-  User
+  User,
+  FileText,
+  Filter,
+  PiggyBank
 } from 'lucide-react';
 
 const navItems = [
@@ -36,6 +39,11 @@ const navItems = [
     href: '/wallets',
     icon: Wallet,
     label: 'Kelola Saldo',
+  },
+  {
+    href: '/reports',
+    icon: FileText,
+    label: 'Laporan',
   },
   {
     href: '/profile',
@@ -73,29 +81,29 @@ export function Sidebar({ isOpen, onOpenChange }: SidebarProps) {
 
       {/* Desktop Sidebar */}
       <aside className={cn(
-        "fixed inset-y-0 left-0 z-40 w-64 bg-card/95 backdrop-blur-sm border-r border-border transition-all duration-300 ease-in-out hidden md:flex flex-col",
-        isOpen ? "translate-x-0 shadow-lg" : "-translate-x-full"
+        "fixed inset-y-0 left-0 z-40 w-64 bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl border-r border-slate-200 dark:border-slate-700 transition-all duration-300 ease-in-out hidden md:flex flex-col shadow-xl",
+        isOpen ? "translate-x-0" : "-translate-x-full"
       )}>
         {/* Sidebar Header */}
-        <div className="flex h-16 items-center justify-between border-b border-border px-6">
-          <div className="flex items-center gap-2">
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-600">
-              <Wallet className="h-5 w-5 text-white" />
+        <div className="flex h-16 items-center justify-between border-b border-slate-200 dark:border-slate-700 px-6">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 shadow-lg">
+              <Wallet className="h-6 w-6 text-white dark:text-slate-900" />
             </div>
-            <span className="text-lg font-semibold">Finance App</span>
+            <span className="text-xl font-bold text-slate-900 dark:text-slate-100">Finance</span>
           </div>
           <Button
             variant="ghost"
             size="sm"
             onClick={() => onOpenChange(false)}
-            className="opacity-70 hover:opacity-100"
+            className="opacity-70 hover:opacity-100 text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 p-4">
+        <nav className="flex-1 space-y-2 p-6">
           {navItems.map((item) => {
             const isActive = pathname === item.href;
             const Icon = item.icon;
@@ -105,10 +113,10 @@ export function Sidebar({ isOpen, onOpenChange }: SidebarProps) {
                 key={item.href}
                 href={item.href}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors group",
+                  "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold transition-all duration-200 group",
                   isActive
-                    ? "bg-emerald-100 text-emerald-900 dark:bg-emerald-900 dark:text-emerald-100"
-                    : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                    ? "bg-slate-900 text-white dark:bg-slate-100 dark:text-slate-900 shadow-lg"
+                    : "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-900 dark:hover:text-slate-100"
                 )}
               >
                 <Icon className="h-5 w-5 flex-shrink-0" />
@@ -119,11 +127,11 @@ export function Sidebar({ isOpen, onOpenChange }: SidebarProps) {
         </nav>
 
         {/* Sign Out Button */}
-        <div className="border-t border-border p-4">
+        <div className="border-t border-slate-200 dark:border-slate-700 p-6">
           <Button
             variant="ghost"
             onClick={handleSignOut}
-            className="w-full justify-start gap-3 text-muted-foreground hover:text-foreground"
+            className="w-full justify-start gap-3 text-slate-600 dark:text-slate-400 hover:text-red-600 dark:hover:text-red-400 hover:bg-red-50 dark:hover:bg-red-950/20 rounded-xl py-3 font-semibold"
           >
             <LogOut className="h-5 w-5" />
             Keluar
@@ -137,16 +145,16 @@ export function Sidebar({ isOpen, onOpenChange }: SidebarProps) {
         isOpen ? "opacity-0 pointer-events-none" : "opacity-100"
       )}>
         <div 
-          className="bg-emerald-600 text-white p-2 rounded-r-lg shadow-lg hover:bg-emerald-700 transition-all duration-200 cursor-pointer group"
+          className="bg-slate-900 dark:bg-slate-100 text-white dark:text-slate-900 p-3 rounded-r-xl shadow-lg hover:bg-slate-800 dark:hover:bg-slate-200 transition-all duration-200 cursor-pointer group"
           onClick={() => onOpenChange(true)}
         >
-          <ChevronRight className="h-4 w-4 group-hover:translate-x-1 transition-transform duration-200" />
+          <ChevronRight className="h-5 w-5 group-hover:translate-x-1 transition-transform duration-200" />
         </div>
       </div>
 
       {/* Collapsed Sidebar Icons - Always Visible */}
       <div className={cn(
-        "fixed left-0 top-0 z-35 w-16 h-full bg-card/80 backdrop-blur-sm border-r border-border/50 hidden md:flex flex-col py-4 transition-all duration-300",
+        "fixed left-0 top-0 z-35 w-16 h-full bg-white/60 dark:bg-slate-900/60 backdrop-blur-sm border-r border-slate-200/50 dark:border-slate-700/50 hidden md:flex flex-col py-4 transition-all duration-300",
         isOpen ? "opacity-0 pointer-events-none -translate-x-full" : "opacity-100 translate-x-0"
       )}>
         {/* Logo */}

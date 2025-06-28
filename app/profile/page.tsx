@@ -178,23 +178,23 @@ export default function ProfilePage() {
   if (loading) {
     return (
       <DashboardLayout>
-        <div className="p-6">
-          <div className="space-y-6">
-            <div className="space-y-2">
-              <div className="h-8 bg-muted rounded animate-pulse" />
-              <div className="h-4 bg-muted rounded w-1/2 animate-pulse" />
+        <div className="p-6 bg-gradient-to-br from-slate-50/50 to-gray-50/30 dark:from-slate-900/40 dark:to-slate-800/30 min-h-screen">
+          <div className="space-y-8">
+            <div className="space-y-3">
+              <div className="h-10 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
+              <div className="h-6 bg-slate-200 dark:bg-slate-700 rounded w-1/2 animate-pulse" />
             </div>
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="grid gap-8 md:grid-cols-2">
               {[1, 2].map((i) => (
-                <Card key={i}>
+                <Card key={i} className="border-0 shadow-lg bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm">
                   <CardHeader>
-                    <div className="h-6 bg-muted rounded animate-pulse" />
+                    <div className="h-8 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
                   </CardHeader>
-                  <CardContent className="space-y-4">
+                  <CardContent className="space-y-6">
                     {[1, 2, 3].map((j) => (
-                      <div key={j} className="space-y-2">
-                        <div className="h-4 bg-muted rounded w-1/4 animate-pulse" />
-                        <div className="h-10 bg-muted rounded animate-pulse" />
+                      <div key={j} className="space-y-3">
+                        <div className="h-5 bg-slate-200 dark:bg-slate-700 rounded w-1/4 animate-pulse" />
+                        <div className="h-12 bg-slate-200 dark:bg-slate-700 rounded animate-pulse" />
                       </div>
                     ))}
                   </CardContent>
@@ -209,28 +209,28 @@ export default function ProfilePage() {
 
   return (
     <DashboardLayout>
-      <div className="p-6">
-        <div className="space-y-6">
-          <div className="space-y-2">
-            <h1 className="text-3xl font-bold tracking-tight">Profil</h1>
-            <p className="text-muted-foreground">
+      <div className="p-6 bg-gradient-to-br from-slate-50/50 to-gray-50/30 dark:from-slate-900/40 dark:to-slate-800/30 min-h-screen">
+        <div className="space-y-8">
+          <div className="space-y-3">
+            <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Profil</h1>
+            <p className="text-slate-600 dark:text-slate-400 text-lg">
               Kelola informasi pribadi dan pengaturan akun Anda
             </p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2">
+          <div className="grid gap-8 md:grid-cols-2">
             {/* Profile Form */}
-            <Card>
+            <Card className="border-0 shadow-lg bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <User className="h-5 w-5" />
+                <CardTitle className="flex items-center gap-3 text-xl font-semibold text-slate-900 dark:text-slate-100">
+                  <User className="h-6 w-6" />
                   Informasi Pribadi
                 </CardTitle>
               </CardHeader>
               <CardContent>
-                <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="full_name">Nama Lengkap</Label>
+                <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+                  <div className="space-y-3">
+                    <Label htmlFor="full_name" className="text-slate-700 dark:text-slate-300">Nama Lengkap</Label>
                     <Input
                       id="full_name"
                       placeholder="Masukkan nama lengkap"
@@ -245,14 +245,15 @@ export default function ProfilePage() {
                           message: 'Nama lengkap maksimal 100 karakter'
                         }
                       })}
+                      className="border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-800"
                     />
                     {errors.full_name && (
                       <p className="text-sm text-red-500">{errors.full_name.message}</p>
                     )}
                   </div>
 
-                  <div className="space-y-2">
-                    <Label htmlFor="whatsapp_number" className="flex items-center gap-2">
+                  <div className="space-y-3">
+                    <Label htmlFor="whatsapp_number" className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
                       <Phone className="h-4 w-4" />
                       Nomor WhatsApp
                     </Label>
@@ -266,20 +267,21 @@ export default function ProfilePage() {
                           message: 'Format nomor WhatsApp tidak valid (contoh: 628123456789)'
                         }
                       })}
+                      className="border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 focus:bg-white dark:focus:bg-slate-800"
                     />
                     {errors.whatsapp_number && (
                       <p className="text-sm text-red-500">{errors.whatsapp_number.message}</p>
                     )}
-                    <p className="text-xs text-muted-foreground">
+                    <p className="text-xs text-slate-500 dark:text-slate-400">
                       Format: 628123456789 (tanpa spasi atau tanda hubung)
                     </p>
                   </div>
 
-                  <div className="flex gap-2">
+                  <div className="flex gap-3 pt-2">
                     <Button 
                       type="submit" 
                       disabled={saving || !isDirty} 
-                      className="flex-1"
+                      className="flex-1 bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 text-white dark:text-slate-900"
                     >
                       <Save className="h-4 w-4 mr-2" />
                       {saving ? 'Menyimpan...' : 'Simpan Perubahan'}
@@ -291,6 +293,7 @@ export default function ProfilePage() {
                         variant="outline" 
                         onClick={handleReset}
                         disabled={saving}
+                        className="border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800"
                       >
                         Reset
                       </Button>
@@ -301,43 +304,43 @@ export default function ProfilePage() {
             </Card>
 
             {/* Account Information */}
-            <Card>
+            <Card className="border-0 shadow-lg bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2">
-                  <Shield className="h-5 w-5" />
+                <CardTitle className="flex items-center gap-3 text-xl font-semibold text-slate-900 dark:text-slate-100">
+                  <Shield className="h-6 w-6" />
                   Informasi Akun
                 </CardTitle>
               </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label className="flex items-center gap-2">
+              <CardContent className="space-y-6">
+                <div className="space-y-3">
+                  <Label className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
                     <Mail className="h-4 w-4" />
                     Email
-                    <Lock className="h-3 w-3 text-muted-foreground" />
+                    <Lock className="h-3 w-3 text-slate-500 dark:text-slate-400" />
                   </Label>
-                  <div className="flex items-center gap-2 p-3 bg-muted rounded-md">
-                    <Mail className="h-4 w-4 text-muted-foreground" />
-                    <span className="text-sm flex-1">{user?.email}</span>
-                    <Badge variant="secondary" className="text-xs">
+                  <div className="flex items-center gap-3 p-4 bg-slate-50/80 dark:bg-slate-800/50 rounded-xl border border-slate-200/50 dark:border-slate-700/50">
+                    <Mail className="h-4 w-4 text-slate-500 dark:text-slate-400" />
+                    <span className="text-sm flex-1 text-slate-900 dark:text-slate-100">{user?.email}</span>
+                    <Badge variant="secondary" className="text-xs bg-slate-100 dark:bg-slate-800 text-slate-700 dark:text-slate-300">
                       Tidak dapat diubah
                     </Badge>
                   </div>
-                  <p className="text-xs text-muted-foreground">
+                  <p className="text-xs text-slate-500 dark:text-slate-400">
                     Email tidak dapat diubah untuk menjaga keamanan akun
                   </p>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Status Akun</Label>
-                  <div className="flex items-center gap-2 p-3 bg-emerald-50 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300 rounded-md">
+                <div className="space-y-3">
+                  <Label className="text-slate-700 dark:text-slate-300">Status Akun</Label>
+                  <div className="flex items-center gap-3 p-4 bg-emerald-50/80 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300 rounded-xl border border-emerald-200/50 dark:border-emerald-700/50">
                     <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
                     <span className="text-sm font-medium">Aktif</span>
                   </div>
                 </div>
 
-                <div className="space-y-2">
-                  <Label>Verifikasi Email</Label>
-                  <div className="flex items-center gap-2 p-3 bg-blue-50 text-blue-700 dark:bg-blue-950 dark:text-blue-300 rounded-md">
+                <div className="space-y-3">
+                  <Label className="text-slate-700 dark:text-slate-300">Verifikasi Email</Label>
+                  <div className="flex items-center gap-3 p-4 bg-blue-50/80 text-blue-700 dark:bg-blue-950/50 dark:text-blue-300 rounded-xl border border-blue-200/50 dark:border-blue-700/50">
                     <div className="w-2 h-2 bg-blue-500 rounded-full"></div>
                     <span className="text-sm font-medium">
                       {user?.email_confirmed_at ? 'Terverifikasi' : 'Belum Terverifikasi'}
@@ -346,13 +349,13 @@ export default function ProfilePage() {
                 </div>
 
                 {profile && (
-                  <div className="space-y-2">
-                    <Label className="flex items-center gap-2">
+                  <div className="space-y-3">
+                    <Label className="flex items-center gap-2 text-slate-700 dark:text-slate-300">
                       <Calendar className="h-4 w-4" />
                       Bergabung Sejak
                     </Label>
-                    <div className="p-3 bg-muted rounded-md">
-                      <span className="text-sm">
+                    <div className="p-4 bg-slate-50/80 dark:bg-slate-800/50 rounded-xl border border-slate-200/50 dark:border-slate-700/50">
+                      <span className="text-sm text-slate-900 dark:text-slate-100">
                         {formatDateTime(profile.created_at)}
                       </span>
                     </div>
@@ -360,10 +363,10 @@ export default function ProfilePage() {
                 )}
 
                 {profile?.updated_at && (
-                  <div className="space-y-2">
-                    <Label>Terakhir Diperbarui</Label>
-                    <div className="p-3 bg-muted rounded-md">
-                      <span className="text-sm">
+                  <div className="space-y-3">
+                    <Label className="text-slate-700 dark:text-slate-300">Terakhir Diperbarui</Label>
+                    <div className="p-4 bg-slate-50/80 dark:bg-slate-800/50 rounded-xl border border-slate-200/50 dark:border-slate-700/50">
+                      <span className="text-sm text-slate-900 dark:text-slate-100">
                         {formatDateTime(profile.updated_at)}
                       </span>
                     </div>
@@ -374,23 +377,23 @@ export default function ProfilePage() {
           </div>
 
           {/* Statistics Card */}
-          <Card>
+          <Card className="border-0 shadow-lg bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm">
             <CardHeader>
-              <CardTitle>Ringkasan Aktivitas</CardTitle>
+              <CardTitle className="text-xl font-semibold text-slate-900 dark:text-slate-100">Ringkasan Aktivitas</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div className="text-center p-4 bg-muted rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{stats.totalTransactions}</div>
-                  <p className="text-sm text-muted-foreground">Total Transaksi</p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <div className="text-center p-6 bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30 rounded-xl border border-blue-200/50 dark:border-blue-700/50">
+                  <div className="text-3xl font-bold text-blue-700 dark:text-blue-300">{stats.totalTransactions}</div>
+                  <p className="text-sm text-blue-600 dark:text-blue-400 mt-2">Total Transaksi</p>
                 </div>
-                <div className="text-center p-4 bg-muted rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{stats.activeMonths}</div>
-                  <p className="text-sm text-muted-foreground">Bulan Aktif</p>
+                <div className="text-center p-6 bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/50 dark:to-emerald-900/30 rounded-xl border border-emerald-200/50 dark:border-emerald-700/50">
+                  <div className="text-3xl font-bold text-emerald-700 dark:text-emerald-300">{stats.activeMonths}</div>
+                  <p className="text-sm text-emerald-600 dark:text-emerald-400 mt-2">Bulan Aktif</p>
                 </div>
-                <div className="text-center p-4 bg-muted rounded-lg">
-                  <div className="text-2xl font-bold text-primary">{stats.topCategory}</div>
-                  <p className="text-sm text-muted-foreground">Kategori Terfavorit</p>
+                <div className="text-center p-6 bg-gradient-to-br from-purple-50 to-purple-100/50 dark:from-purple-950/50 dark:to-purple-900/30 rounded-xl border border-purple-200/50 dark:border-purple-700/50">
+                  <div className="text-3xl font-bold text-purple-700 dark:text-purple-300">{stats.topCategory}</div>
+                  <p className="text-sm text-purple-600 dark:text-purple-400 mt-2">Kategori Terfavorit</p>
                 </div>
               </div>
             </CardContent>

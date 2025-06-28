@@ -5,6 +5,8 @@ export interface Profile {
   id: string;
   full_name: string | null;
   whatsapp_number: string | null;
+  avatar_url: string | null;
+  email: string | null;
   created_at: string;
   updated_at: string;
 }

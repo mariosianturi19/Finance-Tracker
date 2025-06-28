@@ -194,23 +194,27 @@ export default function WalletsPage() {
 
   return (
     <DashboardLayout>
-      <div className="p-6 space-y-6">
+      <div className="p-6 space-y-8 bg-gradient-to-br from-slate-50/30 to-slate-100/20 dark:from-slate-900/40 dark:to-slate-800/30 min-h-screen">
         {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-          <div>
-            <h1 className="text-3xl font-bold tracking-tight">Kelola Saldo</h1>
-            <p className="text-muted-foreground">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-6">
+          <div className="space-y-2">
+            <h1 className="text-4xl font-bold tracking-tight text-slate-900 dark:text-slate-100">Kelola Saldo</h1>
+            <p className="text-slate-600 dark:text-slate-400 text-lg">
               Atur dan pantau semua sumber saldo Anda
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-3">
             <Button
               variant="outline"
               onClick={() => setShowBalance(!showBalance)}
+              className="border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 text-slate-700 dark:text-slate-300"
             >
               {showBalance ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
             </Button>
-            <Button onClick={handleAddNew}>
+            <Button 
+              onClick={handleAddNew}
+              className="bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 text-white dark:text-slate-900"
+            >
               <Plus className="h-4 w-4 mr-2" />
               Tambah Saldo
             </Button>
@@ -218,49 +222,49 @@ export default function WalletsPage() {
         </div>
 
         {/* Summary Cards */}
-        <div className="grid gap-4 md:grid-cols-3">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Saldo</CardTitle>
-              <Wallet className="h-4 w-4 text-muted-foreground" />
+        <div className="grid gap-6 md:grid-cols-3">
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-blue-50 to-blue-100/50 dark:from-blue-950/50 dark:to-blue-900/30">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+              <CardTitle className="text-sm font-medium text-blue-700 dark:text-blue-300">Total Saldo</CardTitle>
+              <Wallet className="h-5 w-5 text-blue-600 dark:text-blue-400" />
             </CardHeader>
             <CardContent>
               <div className={`text-2xl font-bold ${
-                totalBalance >= 0 ? 'text-emerald-600' : 'text-red-600'
+                totalBalance >= 0 ? 'text-emerald-700 dark:text-emerald-300' : 'text-red-700 dark:text-red-300'
               }`}>
                 {showBalance ? formatCurrency(totalBalance / 100) : '••••••••'}
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-blue-600 dark:text-blue-400 mt-1">
                 {wallets.length} sumber saldo
               </p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Pemasukan</CardTitle>
-              <TrendingUp className="h-4 w-4 text-emerald-600" />
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-emerald-50 to-emerald-100/50 dark:from-emerald-950/50 dark:to-emerald-900/30">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+              <CardTitle className="text-sm font-medium text-emerald-700 dark:text-emerald-300">Total Pemasukan</CardTitle>
+              <TrendingUp className="h-5 w-5 text-emerald-600 dark:text-emerald-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-emerald-600">
+              <div className="text-2xl font-bold text-emerald-800 dark:text-emerald-200">
                 {showBalance ? formatCurrency(totalIncome / 100) : '••••••••'}
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-emerald-600 dark:text-emerald-400 mt-1">
                 Semua waktu
               </p>
             </CardContent>
           </Card>
 
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-              <CardTitle className="text-sm font-medium">Total Pengeluaran</CardTitle>
-              <TrendingDown className="h-4 w-4 text-red-600" />
+          <Card className="border-0 shadow-lg bg-gradient-to-br from-red-50 to-red-100/50 dark:from-red-950/50 dark:to-red-900/30">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-3">
+              <CardTitle className="text-sm font-medium text-red-700 dark:text-red-300">Total Pengeluaran</CardTitle>
+              <TrendingDown className="h-5 w-5 text-red-600 dark:text-red-400" />
             </CardHeader>
             <CardContent>
-              <div className="text-2xl font-bold text-red-600">
+              <div className="text-2xl font-bold text-red-800 dark:text-red-200">
                 {showBalance ? formatCurrency(totalExpense / 100) : '••••••••'}
               </div>
-              <p className="text-xs text-muted-foreground">
+              <p className="text-xs text-red-600 dark:text-red-400 mt-1">
                 Semua waktu
               </p>
             </CardContent>
@@ -269,7 +273,7 @@ export default function WalletsPage() {
 
         {/* Wallets Grid */}
         {wallets.length > 0 ? (
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
             {wallets.map((wallet) => (
               <WalletCard
                 key={wallet.id}
@@ -282,14 +286,17 @@ export default function WalletsPage() {
             ))}
           </div>
         ) : (
-          <Card>
-            <CardContent className="flex flex-col items-center justify-center py-12">
-              <Wallet className="h-12 w-12 text-muted-foreground mb-4" />
-              <h3 className="text-lg font-semibold mb-2">Belum Ada Saldo</h3>
-              <p className="text-muted-foreground mb-4 text-center max-w-md">
+          <Card className="border-0 shadow-lg bg-white/70 dark:bg-slate-900/70 backdrop-blur-sm">
+            <CardContent className="flex flex-col items-center justify-center py-16">
+              <Wallet className="h-16 w-16 text-slate-400 dark:text-slate-600 mb-6" />
+              <h3 className="text-xl font-semibold mb-3 text-slate-900 dark:text-slate-100">Belum Ada Saldo</h3>
+              <p className="text-slate-600 dark:text-slate-400 mb-8 text-center max-w-md text-lg">
                 Tambahkan sumber saldo pertama Anda untuk mulai mencatat transaksi keuangan
               </p>
-              <Button onClick={handleAddNew}>
+              <Button 
+                onClick={handleAddNew}
+                className="bg-slate-900 hover:bg-slate-800 dark:bg-slate-100 dark:hover:bg-slate-200 text-white dark:text-slate-900"
+              >
                 <Plus className="h-4 w-4 mr-2" />
                 Tambah Saldo Pertama
               </Button>
@@ -311,9 +318,9 @@ export default function WalletsPage() {
             });
           }
         }}>
-          <DialogContent>
+          <DialogContent className="bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700">
             <DialogHeader>
-              <DialogTitle>
+              <DialogTitle className="text-slate-900 dark:text-slate-100">
                 {selectedWallet ? 'Edit Sumber Saldo' : 'Tambah Sumber Saldo'}
               </DialogTitle>
               <DialogDescription>

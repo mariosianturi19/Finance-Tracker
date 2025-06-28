@@ -31,8 +31,12 @@ export interface Transaction {
 }
 
 export async function createTransaction(transaction: CreateTransactionData): Promise<Transaction> {
+  console.log('🚀 createTransaction called with:', transaction.type, transaction.amount);
+  
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) throw new Error('User not authenticated');
+
+  console.log('✅ User authenticated, creating transaction in database...');
 
   const { data, error } = await supabase
     .from('transactions')
@@ -51,7 +55,23 @@ export async function createTransaction(transaction: CreateTransactionData): Pro
     .select()
     .single();
 
-  if (error) throw error;
+  if (error) {
+    console.error('❌ Database error:', error);
+    throw error;
+  }
+
+  console.log('✅ Transaction created successfully:', data.id);
+  console.log('📱 Attempting to send WhatsApp notification...');
+
+  // Send WhatsApp notification (optional, non-blocking)
+  try {
+    await sendTransactionNotification(data, user.id);
+    console.log('✅ WhatsApp notification process completed');
+  } catch (notificationError) {
+    console.error('❌ Failed to send WhatsApp notification:', notificationError);
+    // Don't throw error, notification failure shouldn't block transaction creation
+  }
+
   return data;
 }
 
@@ -160,4 +180,97 @@ export async function getTransactionStats(walletId?: string) {
   }
 
   return stats;
+}
+
+// Helper function to send WhatsApp notification for transaction
+async function sendTransactionNotification(transaction: Transaction, userId: string): Promise<void> {
+  console.log('🔔 sendTransactionNotification called for transaction:', transaction.id);
+  
+  try {
+    // Get user profile to check WhatsApp settings
+    console.log('📱 Fetching user profile for WhatsApp settings...');
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('whatsapp_number')
+      .eq('id', userId)
+      .single();
+
+    console.log('👤 Profile data:', { 
+      userId, 
+      whatsapp_number: profile?.whatsapp_number || 'Not set' 
+    });
+
+    // Check if WhatsApp number exists (if exists, notifications are considered enabled)
+    if (!profile?.whatsapp_number) {
+      console.log('⚠️  WhatsApp notifications disabled or no phone number');
+      return;
+    }
+
+    console.log('✅ WhatsApp number found, proceeding with notification...');
+
+    // Get wallet information
+    const { data: wallet } = await supabase
+      .from('wallets')
+      .select('name')
+      .eq('id', transaction.wallet_id)
+      .single();
+
+    // Format amount in IDR
+    const formattedAmount = new Intl.NumberFormat('id-ID', {
+      style: 'currency',
+      currency: 'IDR',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0
+    }).format(transaction.amount / 100);
+
+    // Format date
+    const transactionDate = new Date(transaction.date).toLocaleDateString('id-ID', {
+      weekday: 'long',
+      year: 'numeric',
+      month: 'long',
+      day: 'numeric'
+    });
+
+    // Create notification message
+    const transactionType = transaction.type === 'pemasukan' ? '💰 PEMASUKAN' : '💸 PENGELUARAN';
+    const emoji = transaction.type === 'pemasukan' ? '✅' : '❌';
+    
+    const message = `${emoji} *NOTIFIKASI TRANSAKSI*
+
+${transactionType}
+💰 Jumlah: ${formattedAmount}
+📁 Kategori: ${transaction.category}
+🏦 Sumber: ${wallet?.name || 'N/A'}
+📅 Tanggal: ${transactionDate}
+${transaction.note ? `📝 Catatan: ${transaction.note}` : ''}
+
+Transaksi Anda berhasil dicatat dalam Finance Tracker! 🎉`;
+
+    console.log('📤 Sending WhatsApp message via API to:', profile.whatsapp_number);
+    console.log('💬 Message content preview:', message.substring(0, 100) + '...');
+
+    // Send notification via API endpoint (works from client-side)
+    const response = await fetch('/api/whatsapp/send', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        target: profile.whatsapp_number,
+        message: message
+      })
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(`API request failed: ${errorData.error || response.statusText}`);
+    }
+
+    const result = await response.json();
+    console.log('✅ WhatsApp notification sent successfully for transaction:', transaction.id);
+    console.log('📱 API Response:', result);
+  } catch (error) {
+    console.error('Error sending transaction notification:', error);
+    throw error;
+  }
 }

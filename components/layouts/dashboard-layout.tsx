@@ -53,8 +53,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   if (loading) {
     return (
-      <div className="flex h-screen items-center justify-center">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-emerald-600"></div>
+      <div className="flex h-screen items-center justify-center bg-gradient-to-br from-slate-50/50 to-gray-50/30 dark:from-slate-950/50 dark:to-gray-950/30">
+        <div className="flex flex-col items-center space-y-4">
+          <div className="animate-spin rounded-full h-12 w-12 border-4 border-slate-200 dark:border-slate-700 border-t-slate-900 dark:border-t-slate-100"></div>
+          <p className="text-slate-600 dark:text-slate-400 font-medium">Memuat...</p>
+        </div>
       </div>
     );
   }
@@ -64,7 +67,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   }
 
   return (
-    <div className="flex h-screen bg-background overflow-hidden">
+    <div className="flex h-screen bg-slate-50/30 dark:bg-slate-950/30 overflow-hidden">
       <Sidebar isOpen={sidebarOpen} onOpenChange={setSidebarOpen} />
       <main 
         className={cn(
